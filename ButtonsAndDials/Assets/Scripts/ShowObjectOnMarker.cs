@@ -4,11 +4,17 @@ using UnityEngine;
 using UnityEngine.Events;
 using GoogleARCore;
 
+[System.Serializable]
+public class MarkerTrackEvent : UnityEvent <Vector3, Quaternion> {}
+
 public class ShowObjectOnMarker : MonoBehaviour
 {
+    [Tooltip ("The name of the marker in the database")]
     public string trackableName;
+    [Tooltip ("The object that is shown when the marker is found")]
     public GameObject asset;
-    public UnityEvent updatedHandler;
+    [Tooltip ("The functions that are called while the marker is tracked")]
+    public MarkerTrackEvent updatedHandler;
 
     private Anchor anchor;
 
@@ -16,6 +22,7 @@ public class ShowObjectOnMarker : MonoBehaviour
     {
           asset.SetActive (false);
     }
+    
     void Update()
     {
        List<AugmentedImage> arImages = new List <AugmentedImage> ();  
@@ -29,12 +36,16 @@ public class ShowObjectOnMarker : MonoBehaviour
                 {
                     anchor = image.CreateAnchor(image.CenterPose);
                 }
-              asset.transform.position = anchor.transform.position;
-              asset.transform.rotation = anchor.transform.rotation;
               asset.SetActive (true);
-              updatedHandler.Invoke ();
+              updatedHandler.Invoke (anchor.transform.position, anchor.transform.rotation);
               break;
             }
         }
+    }
+    
+    public void defaultTrackHandler (Vector3 p, Quaternion r)
+    {
+      asset.transform.position = p;
+      asset.transform.rotation = r;
     }
 }

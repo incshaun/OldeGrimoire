@@ -4,9 +4,11 @@ using UnityEngine;
 
 public class LightControls : MonoBehaviour
 {
+    public Material lampMaterial;
+    
     public void setColour (Color col)
     {
-        GetComponent <MeshRenderer> ().material.color = col;
+        lampMaterial.color = col;
     }
 
     public void lightOff ()
@@ -16,6 +18,6 @@ public class LightControls : MonoBehaviour
 
     public void lightOn ()
     {
-        setColour (new Color (1, 1, 0.8f)); 
+        setColour (new Color (1, 1, 0.2f)); 
     }
 }
