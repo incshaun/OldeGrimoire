@@ -34,3 +34,10 @@ sysinfo.txt
 # Builds
 *.apk
 *.unitypackage
+.gradle/
+GoogleARCore/
+GoogleARCore.meta
+PlayServicesResolver/
+PlayServicesResolver.meta
+Logs/
+Packages/
