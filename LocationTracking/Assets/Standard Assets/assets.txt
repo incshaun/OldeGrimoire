@@ -1,0 +1,1 @@
+Contains Vuforia assets created automatically when the AR Camera is added to the scene.
