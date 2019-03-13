@@ -67,6 +67,23 @@ public class SharedLocation : MonoBehaviour
         sendMutex.ReleaseMutex();
     }
 
+    // Find all objects with the given identifier in the database, and change
+    // the type to the given targetType.
+    static public void markObject (List<LocationData> list, Mutex mutex, int identifier, LocationType targetType)
+    {
+        // Ensure exclusive access to the list.
+        mutex.WaitOne();
+        foreach (LocationData ld in list)
+        {
+            if (ld.identifier == identifier)
+            {
+                ld.locType = targetType;
+            }
+        }
+        // Allow others to access the list.
+        mutex.ReleaseMutex();
+    }
+
     // Add a location entry to one of the database. To be thread safe, we also require
     // a mutex to lock the list before updating it.
     static public void addLocation(List<LocationData> list, Mutex mutex, LocationData ld)

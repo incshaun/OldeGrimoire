@@ -35,8 +35,6 @@ public class SharedLocationClient
             {
                 LocationData ld = SharedLocation.receiveMessage(stream, clientReceiveMutex);
 
-                Debug.Log("Client Received " + ld);
-
                 switch (ld.status)
                 {
                     case MessageStatus.IdSet:
@@ -133,6 +131,7 @@ public class SharedLocationClient
             {
                 case LocationType.Participant: c = new Color(1, 0, 0); break;
                 case LocationType.Waypoint: c = new Color(0, 1, 0); break;
+                case LocationType.Defunct: c = new Color(0.4f, 0.4f, 0.4f); break;
                 default: c = new Color(0, 0.5f, 0.5f); break;
             }
             g.GetComponent<MeshRenderer>().material.color = c;

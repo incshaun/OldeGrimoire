@@ -27,6 +27,8 @@ public class SharedLocationServer
         // This ensures that messages from different processes don't get intermingled.
         public Mutex sendMutex = new Mutex();
         public Mutex receiveMutex = new Mutex();
+        // List of identifiers for objects associated with this connection.
+        public List<int> myObjects = new List<int>();
     }
 
     // https://stackoverflow.com/questions/6803073/get-local-ip-address
@@ -41,6 +43,17 @@ public class SharedLocationServer
             }
         }
         throw new Exception("No network adapters with an IPv4 address in the system!");
+    }
+
+    private void removeConnection(ConnectionInfo ci)
+    {
+        foreach (int id in ci.myObjects)
+        {
+            SharedLocation.markObject(serverDatabase, serverDatabaseMutex, id, LocationType.Defunct);
+        }
+        connectionsMutex.WaitOne();
+        connections.Remove(ci);
+        connectionsMutex.ReleaseMutex();
     }
 
     // Send a complete copy of the server database to all of the clients.
@@ -62,11 +75,19 @@ public class SharedLocationServer
             // Send a copy of the database to this client.
             serverDatabaseMutex.WaitOne();
 
-            foreach (LocationData ld in serverDatabase)
+            try
             {
-                ld.status = MessageStatus.Update;
+                foreach (LocationData ld in serverDatabase)
+                {
+                    ld.status = MessageStatus.Update;
 
-                SharedLocation.sendMessage (ld, ci.socket.GetStream(), ci.sendMutex);
+                    SharedLocation.sendMessage(ld, ci.socket.GetStream(), ci.sendMutex);
+                }
+            }
+            catch (Exception e)
+            {
+                Debug.Log("Server update Failed : " + e + " " + e.Message);
+
             }
 
             serverDatabaseMutex.ReleaseMutex();
@@ -83,16 +104,19 @@ public class SharedLocationServer
         {
             try
             {
-                LocationData ld = SharedLocation.receiveMessage (stream, ci.receiveMutex);
-                Debug.Log("Received " + ld);
+                LocationData ld = SharedLocation.receiveMessage(stream, ci.receiveMutex);
                 // add to database.
-                SharedLocation.addLocation (serverDatabase, serverDatabaseMutex, ld);
+                SharedLocation.addLocation(serverDatabase, serverDatabaseMutex, ld);
+                if (!ci.myObjects.Contains(ld.identifier))
+                {
+                    ci.myObjects.Add(ld.identifier);
+                }
 
                 if (ld.locType == LocationType.Participant)
                 {
                     // reply back to client.
                     ld.status = MessageStatus.IdSet;
-                    SharedLocation.sendMessage (ld, stream, ci.sendMutex);
+                    SharedLocation.sendMessage(ld, stream, ci.sendMutex);
                 }
 
                 sendUpdatesToAllClients();
@@ -103,9 +127,7 @@ public class SharedLocationServer
                 Debug.Log("Communication Failed : " + e + " " + e.Message);
                 stream.Close();
                 // remove connection.
-                connectionsMutex.WaitOne();
-                connections.Remove(ci);
-                connectionsMutex.ReleaseMutex();
+                removeConnection(ci);
 
                 break;
             }
