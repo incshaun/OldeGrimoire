@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Video conferencing: Stream Video</title>
+</head>
+
+<body>
+  <h1>Video conferencing: Stream Video</h1>
+
+  <table>
+  <tr>
+    <th>Local View</th>
+    <th>Remote View</th>
+  </tr>
+  <tr>
+    <td><video id="localVideo" width="320" autoplay playsinline></video></td>
+    <td><video id="remoteVideo" width="320" autoplay playsinline></video></td>
+  </tr>
+  </table>
+
+  <table>
+  <tr>
+    <th>Incoming Offers</th>
+  </tr>
+  <tr>
+    <td>
+    <ol id="offerList"></ol>
+    </td>
+  </tr>
+  </table>
+  
+
+  <textarea id="dataChannelSend" disabled placeholder="Enter some text, then press Send."></textarea>
+  <textarea id="dataChannelReceive" disabled></textarea>
+
+  <div>
+    <button id="sendOfferButton">Send Offer</button>
+    <button id="answerOfferButton">Answer Selected Offer</button>
+    <button id="hangupButton">Hang Up</button>
+    <button id="muteAudioButton">Mute Audio</button>
+    <button id="muteVideoButton">Mute Video</button>
+    <button id="sendMessageButton">Send Message</button>
+  </div>
+  
+  <script src="https://webrtc.github.io/adapter/adapter-latest.js"></script>
+  <script src="streamvideo.js"></script>
+</body>
+</html>
