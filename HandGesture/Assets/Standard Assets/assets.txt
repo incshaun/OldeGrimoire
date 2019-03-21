@@ -1,0 +1,1 @@
+Download the Unity Assets for Leap Motion Orion Beta: UNITY CORE ASSETS 4.4.0 from https://developer.leapmotion.com/unity.
