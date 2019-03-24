@@ -53,7 +53,6 @@ public class DatagramCommunication
         udpClient.BeginReceive(new AsyncCallback(udpReceive), null);
     }
 
-    // Broadcast the hand parameters.
     public void sendHandDetails(string hostname, HandDetails details)
     {
         if (hostname != null)
