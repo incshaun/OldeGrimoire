@@ -7,33 +7,33 @@ using System;
 
 public class AccessOpenCV : MonoBehaviour
 {
-    public Material cameraMaterial;
+  public Material cameraMaterial;
   
-    public GameObject markerTemplate;
-    public GameObject markerParent;
-    
-    private bool modelReady = false;
-
-    private float delayTime = 0.0f;
-    
-	  public Text text;
-
-    private string [] CLASSES = { "background", "aeroplane", "bicycle", "bird", "boat", "bottle", "bus", "car", "cat", "chair", "cow", "diningtable", "dog", "horse", "motorbike", "person", "pottedplant", "sheep", "sofa", "train", "tvmonitor" };
-    
-    [DllImport("VisualRecognition")]
-    private static extern void prepareModel (string dirname);
-
-    [DllImport("VisualRecognition")]
-    private static extern int doRecognise (byte [] imageData, int width, int height);
+  public GameObject markerTemplate;
+  public GameObject markerParent;
   
-    [DllImport("VisualRecognition")]
-    private static extern void retrieveMatch (int i, ref int category, ref float confidence, ref float sx, ref float sy, ref float ex, ref float ey);
-    
-    void Start ()
-    {
-      StartCoroutine (prepareModel ());
-    }
-    
+  private bool modelReady = false;
+  
+  private float delayTime = 0.0f;
+  
+  public Text text;
+  
+  private string [] CLASSES = { "background", "aeroplane", "bicycle", "bird", "boat", "bottle", "bus", "car", "cat", "chair", "cow", "diningtable", "dog", "horse", "motorbike", "person", "pottedplant", "sheep", "sofa", "train", "tvmonitor" };
+  
+  [DllImport("VisualRecognition")]
+  private static extern void prepareModel (string dirname);
+  
+  [DllImport("VisualRecognition")]
+  private static extern int doRecognise (byte [] imageData, int width, int height);
+  
+  [DllImport("VisualRecognition")]
+  private static extern void retrieveMatch (int i, ref int category, ref float confidence, ref float sx, ref float sy, ref float ex, ref float ey);
+  
+  void Start ()
+  {
+    StartCoroutine (prepareModel ());
+  }
+  
   IEnumerator prepareModel ()
   {  
     yield return StartCoroutine(extractFile ("", "MobileNetSSD_deploy.caffemodel"));
@@ -46,11 +46,11 @@ public class AccessOpenCV : MonoBehaviour
   
   private void clearVisuals ()
   {
-     foreach (Transform child in markerParent.transform)
-        {
-          GameObject.Destroy(child.gameObject);
-        }
-
+    foreach (Transform child in markerParent.transform)
+    {
+      GameObject.Destroy(child.gameObject);
+    }
+    
   }
   
   private void addVisual (string name, float confidence, float sx, float sy, float ex, float ey)
@@ -79,9 +79,9 @@ public class AccessOpenCV : MonoBehaviour
       image.Apply();
       
       int numMatch = doRecognise (image.GetRawTextureData (), image.width, image.height);
-
+      
       text.text = "Matches: " + numMatch;
-        
+      
       for (int i = 0; i < numMatch; i++)
       {
         int category = -1;
