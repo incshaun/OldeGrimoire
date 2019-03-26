@@ -50,7 +50,6 @@ public class HandInformationSink : MonoBehaviour
 
             hand.UpdateHand();
 
-            // make the laser beam active if the trigger is pressed.
             laserBeam.SetActive(beamActive);
             if (beamActive)
             {
