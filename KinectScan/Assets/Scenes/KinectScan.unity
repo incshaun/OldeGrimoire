@@ -215,8 +215,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2ba4581d3a0a16d459006c2010131dcc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  colorManager: {fileID: 0}
-  depthManager: {fileID: 0}
+  colorManager: {fileID: 303703665}
+  depthManager: {fileID: 303703664}
 --- !u!114 &303703664
 MonoBehaviour:
   m_ObjectHideFlags: 0
