@@ -1,0 +1,1 @@
+Install GVR SDK for Unity v1.190.0 from https://github.com/googlevr/gvr-unity-sdk/releases. 
