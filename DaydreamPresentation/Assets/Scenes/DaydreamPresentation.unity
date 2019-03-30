@@ -321,6 +321,7 @@ GameObject:
   - component: {fileID: 412461583}
   - component: {fileID: 412461587}
   - component: {fileID: 412461588}
+  - component: {fileID: 412461589}
   m_Layer: 0
   m_Name: PresentationScreen
   m_TagString: Untagged
@@ -445,6 +446,17 @@ MonoBehaviour:
       m_TypeName: UnityEngine.EventSystems.EventTrigger+TriggerEvent, UnityEngine.UI,
         Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
   delegates: []
+--- !u!114 &412461589
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInternal: {fileID: 0}
+  m_GameObject: {fileID: 412461582}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: be20a0a6e09164a01aea7f28882429a2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &534669902
 GameObject:
   m_ObjectHideFlags: 0
