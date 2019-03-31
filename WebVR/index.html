@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>Daydream VR experience using WebVR and A-Frame</title>
+    <script src="https://aframe.io/releases/0.9.0/aframe.min.js"></script>
+  </head>  
+  <body>
+
+    <script>
+      AFRAME.registerComponent("daydream-listener", {
+        init: function() {
+          this.el.addEventListener("axismove", (e) => {
+            var colourSphere = document.querySelector('#coloursphere');
+            colourSphere.setAttribute ("color", 
+                                       "rgb(" + parseInt((1 + e.detail.axis[0])*127) + ","
+                                              + parseInt((1+e.detail.axis[1])*127) + ",0)" );
+          })
+        }
+      })
+    </script>
+    
+    <a-scene>
+      
+      <a-assets>
+        <img id="backgroundImage" src="https://cdn.glitch.com/b4b3f58a-8112-4ded-a9be-6f0155a6ced1%2Fpanorama-2117310_1920.jpg?1554002790367">
+        <a-asset-item id="croc-obj" src="https://cdn.glitch.com/b4b3f58a-8112-4ded-a9be-6f0155a6ced1%2Fmodel.obj?1554006241707"></a-asset-item>
+        <a-asset-item id="croc-mtl" src="https://cdn.glitch.com/b4b3f58a-8112-4ded-a9be-6f0155a6ced1%2Fmaterials.mtl?1554006238081"></a-asset-item>
+      </a-assets>
+
+      <a-sky src="#backgroundImage" radius="10"></a-sky>
+      <a-sphere id="coloursphere" position="0 1.25 -5" radius="1.25" color="#EF2D5E" shadow></a-sphere>
+      <a-plane position="0 0 0" rotation="-90 0 0" width="10" height="10" color="#00AA00" shadow></a-plane>
+      <a-obj-model src="#croc-obj" mtl="#croc-mtl" position="-2 0.5 -3"></a-obj-model>
+      <a-obj-model src="#croc-obj" mtl="#croc-mtl" position="3 0.5 -3"></a-obj-model>
+      
+      <a-camera position="0 1.5 0" rotation="0 0 0" width="5" height="5" color="#00AA00" shadow></a-camera>
+      <a-entity daydream-controls daydream-listener></a-entity>
+    </a-scene>
+    
+    <script>
+      setInterval (function () {
+        var scene = document.querySelector ("a-scene");
+        var croc = document.createElement ("a-obj-model");
+        var x = 10 * (Math.random () - 0.5);
+        var z = 10 * (Math.random () - 0.5);
+        croc.setAttribute ("src", "#croc-obj");
+        croc.setAttribute ("mtl", "#croc-mtl");
+        croc.setAttribute ("position", x + " 3.5 " + z);
+        croc.setAttribute ("animation", "property: position; to: " + x + " 0 " + z + "; dur: 5000; easing: linear; loop: false;");
+      // croc.setAttribute ("animation__2", "property: rotation; to: 0 360 0; loop: true; dur: 1000; easing: linear;");
+        croc.addEventListener ("animationcomplete", function () { croc.parentNode.removeChild (croc); });
+
+        scene.appendChild (croc);
+        
+      }, 2000);
+    </script>
+    
+  </body>
+</html>
