@@ -77,8 +77,11 @@ public class GazeController : NetworkBehaviour {
 #if UNITY_ANDROID && !UNITY_EDITOR   
     // Calculate position to set the avatar so that head is at camera position.
     // Small offset so the beam is visible.
-    transform.position = ARCamera.transform.position + new Vector3 (0, 0.1f, -0.2f);
-    transform.rotation = ARCamera.transform.rotation;
+    if (isLocalPlayer)
+    {
+      transform.position = ARCamera.transform.position + new Vector3 (0, 0.1f, -0.2f);
+      transform.rotation = ARCamera.transform.rotation;
+    }
 #endif    
   }
   

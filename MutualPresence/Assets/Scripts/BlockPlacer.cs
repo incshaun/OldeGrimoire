@@ -22,7 +22,8 @@ public class BlockPlacer : NetworkBehaviour {
         
         void Start ()
         {
-          parentObject = GameObject.Find ("AROverlay");
+          // Indirect find, since AROverlay is not active at this stage and Find won't work directly.
+          parentObject = GameObject.Find ("Marker").transform.Find ("AROverlay").gameObject;
           
           controller = GetComponent <GazeController> ();
           
