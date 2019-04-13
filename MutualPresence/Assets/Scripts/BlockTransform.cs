@@ -14,6 +14,7 @@ public class BlockTransform : NetworkBehaviour {
   void updatePosition (Vector3 p)
   {
     transform.localPosition = p;
+    transform.localRotation = Quaternion.identity;
   }
   void updateScale (Vector3 s)
   {

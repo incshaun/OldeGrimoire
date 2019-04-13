@@ -7,14 +7,21 @@ using UnityEngine.EventSystems;
 
 public class GazeController : NetworkBehaviour {
 
+  // The laser beam object visible on the local player
   private GameObject beam;
+  // The primary button for the local player.
   private GameObject button1;
+  // The secondary button for the local player.
   private GameObject button2;
   
+  // The state of the primary button.
   private bool button1Pressed;
+  // The state of the secondary button.
   private bool button2Pressed;
 
+  // The camera if run on a desktop.
   private GameObject defaultCamera;
+  // The camera if run on an AR capable device.
   private GameObject ARCamera;
   
   void Start ()
