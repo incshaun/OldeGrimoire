@@ -43,4 +43,6 @@ PlayServicesResolver.meta
 Logs/
 Packages/
 
-Standard\ Assets/
+**/Standard\ Assets/**/
+**/Standard\ Assets/*
+!**/Standard\ Assets/assets.txt*
