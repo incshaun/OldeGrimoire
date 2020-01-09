@@ -46,3 +46,5 @@ Packages/
 **/Standard\ Assets/**/
 **/Standard\ Assets/*
 !**/Standard\ Assets/assets.txt*
+
+tensorflow/

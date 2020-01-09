@@ -246,7 +246,11 @@ int computePose (int texture, int w, int h, float * results)
   glEnable (GL_TEXTURE_2D);
   glBindTexture (GL_TEXTURE_2D, texture);
   unsigned char * dd = new unsigned char [w * h * 3];
+#ifdef ANDROID
+#else
   glGetTexImage (GL_TEXTURE_2D, 0, GL_RGB, GL_UNSIGNED_BYTE, dd);
+#endif
+  
   glBindTexture (GL_TEXTURE_2D, 0);
   glDisable (GL_TEXTURE_2D);
 
