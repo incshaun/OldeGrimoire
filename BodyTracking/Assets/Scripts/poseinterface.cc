@@ -22,8 +22,9 @@
 
 extern "C" 
 {
-  void initPose ();
+  void initPose (char * modelfile);
   int computePose (int texture, int w, int h, float * results);
+  int computePoseData (char * imageData, int w, int h, float * results);
 }
 
 // For debugging, read the input image from a ppm file. Generic function
@@ -139,9 +140,9 @@ tflite::ops::builtin::BuiltinOpResolver resolver;
 std::unique_ptr<tflite::Interpreter> interpreter;
 
 // Load the reusable elements of the process, such as model.
-void initPose ()
+void initPose (char * modelfile)
 {
-  model = tflite::FlatBufferModel::BuildFromFile ("posenet_mobilenet_v1_100_257x257_multi_kpt_stripped.tflite"); //"multi_person_mobilenet_v1_075_float.tflite");
+  model = tflite::FlatBufferModel::BuildFromFile (modelfile);
   tflite::InterpreterBuilder(*model, resolver)(&interpreter);
 
 #ifdef TESTPOSEINTERFACE
@@ -247,6 +248,17 @@ int computePose (int texture, int w, int h, float * results)
   glBindTexture (GL_TEXTURE_2D, texture);
   unsigned char * dd = new unsigned char [w * h * 3];
 #ifdef ANDROID
+  // Thanks: https://stackoverflow.com/questions/53993820/opengl-es-2-0-android-c-glgetteximage-alternative
+  GLuint fbo;
+  glGenFramebuffers (1, &fbo); 
+  glBindFramebuffer (GL_FRAMEBUFFER, fbo);
+  glFramebufferTexture2D (GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture, 0);
+
+  glReadPixels(0, 0, w, h, GL_RGB, GL_UNSIGNED_BYTE, dd);
+
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+  glDeleteFramebuffers(1, &fbo);  
+  
 #else
   glGetTexImage (GL_TEXTURE_2D, 0, GL_RGB, GL_UNSIGNED_BYTE, dd);
 #endif
@@ -260,6 +272,14 @@ int computePose (int texture, int w, int h, float * results)
   return r;
 }
 
+// Variation on compute pose due to issues with android accessing camera data.
+int computePoseData (char * imageData, int w, int h, float * results)
+{
+  callPose ((unsigned char *) imageData, w, h, results);
+  int r = 222;
+  return r;
+}
+
 #ifdef TESTPOSEINTERFACE
 int main (int argc, char * argv [])
 {
@@ -268,7 +288,7 @@ int main (int argc, char * argv [])
   unsigned char * data = readPPMfile ("pose.ppm", &width, &height);
   printf ("Read %d %d\n", width, height);
   float results [17 * 3];
-  initPose ();
+  initPose ("Assets/StreamingAssets/posenet_mobilenet_v1_100_257x257_multi_kpt_stripped.tflite");
   callPose (data, width, height, results);
   for (int i = 0; i < 17; i++)
   {
