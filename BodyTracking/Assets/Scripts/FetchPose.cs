@@ -26,10 +26,8 @@ public class FetchPose : MonoBehaviour
   
   private int numPointsInPose = 17;
   
-  public GameObject pointMarkerTemplate;
+  public PoseSkeleton poseVisualizer;
   
-  private GameObject [] markers;
- 
   private bool dataReady;
   
   // Start is called before the first frame update
@@ -42,8 +40,6 @@ public class FetchPose : MonoBehaviour
     
     dataReady = false;
     StartCoroutine (prepareModel ());
-    
-    markers = new GameObject [numPointsInPose];
   }
 
   
@@ -83,6 +79,9 @@ public class FetchPose : MonoBehaviour
     NativeArray <float> pose = new NativeArray <float> (numPointsInPose * 3, Allocator.Temp);
     int result = computePoseData (image.GetRawTextureData (), image.width, image.height, (float *) NativeArrayUnsafeUtility.GetUnsafePtr (pose));
 //     Debug.Log ("Got result " + result + " " + pose[0] + " " + pose[1] + " " + pose[2]);
+    
+    Destroy (renderTexture);
+    Destroy (image);
     return pose.ToArray ();
   }
   
@@ -97,27 +96,8 @@ public class FetchPose : MonoBehaviour
       float endTime = Time.realtimeSinceStartup;
       Debug.Log ("Pose tracked in " + (endTime - startTime).ToString ("F6") + " seconds");
       
-      for (int i = 0; i < numPointsInPose; i++)
-      {
-        if (markers[i] == null)
-        {
-          markers[i] = Instantiate (pointMarkerTemplate);
-          markers[i].transform.SetParent (this.transform, false);
-        }
-         
-        markers[i].transform.localPosition = new Vector3 (- (10.0f * pose[i * 3 + 0] - 5.0f), 0.0f, - (10.0f * pose[i * 3 + 1] - 5.0f));
-        if (pose[i * 3 + 2] < 0.0f)
-        {
-          markers[i].SetActive (false);
-        }
-        else
-        {
-          markers[i].SetActive (true);
-        }
-        //Debug.Log (pose[i * 3 + 0] + " " + pose[i * 3 + 1] + " " + pose[i * 3 + 2]);
-      }
+      poseVisualizer.updatePose (pose);
     }
-    
   }
   
   // Copy files into an area where they are accessible. This is particularly

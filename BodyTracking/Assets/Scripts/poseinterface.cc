@@ -267,6 +267,7 @@ int computePose (int texture, int w, int h, float * results)
   glDisable (GL_TEXTURE_2D);
 
   callPose (dd, w, h, results);
+  delete [] dd;
   int r = 99;
   r = glGetError ();
   return r;
