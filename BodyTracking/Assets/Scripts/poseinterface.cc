@@ -1,13 +1,3 @@
-// Compile with:
-// g++ ta.cc -o ta tensorflow/tensorflow/lite/tools/make/gen/linux_x86_64/lib/libtensorflow-lite.a -I tensorflow/ -I tensorflow/tensorflow/lite/tools/make/downloads/flatbuffers/include/ -lpthread
-
-// Disable absl in the Makefile
-
-// Knock out a couple of other unused functions; might need to clean this up later.
-
-//g++ -fPIC ta.cc -o libta.so -shared -Wl,--whole-archive  tensorflow/tensorflow/lite/tools/make/gen/linux_x86_64/lib/libtensorflow-lite.a -I tensorflow/ -I tensorflow/tensorflow/lite/tools/make/downloads/flatbuffers/include/  -lpthread -Wl,--no-whole-archive; cp libta.so PoseTest/Assets/Plugins/x86_64
-
-
 #include <stdio.h>
 
 #include <tensorflow/lite/model.h>

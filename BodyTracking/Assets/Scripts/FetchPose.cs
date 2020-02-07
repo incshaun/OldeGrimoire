@@ -7,6 +7,7 @@ using System;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.IO;
+using UnityEngine.UI;
 
 // Retrieve pose information from the native posenet/tensorflow lite facilities.
 // Also includes some visual elements, to show camera feed and monitor retrieved
@@ -27,14 +28,45 @@ public class FetchPose : MonoBehaviour
   private int numPointsInPose = 17;
   
   public PoseSkeleton poseVisualizer;
+  public NetworkedPose poseTransmitter;
   
   private bool dataReady;
+  
+  private int currentCamera = 0;
+  public Text outputText;
+  
+  private bool overrideCapture = false;
+  
+  public void toggleCapture ()
+  {
+    overrideCapture = !overrideCapture;
+  }
+  
+  private void showCameras ()
+  {
+    outputText.text = "";
+    foreach (WebCamDevice d in WebCamTexture.devices)
+    {
+      outputText.text += d.name + (d.name == webcamTexture.deviceName ? "*" : "") + "\n";
+    }
+  }
+  
+  public void nextCamera ()
+  {
+    currentCamera = (currentCamera + 1) % WebCamTexture.devices.Length;
+    // Change camera only works if the camera is stopped.
+    webcamTexture.Stop ();
+    webcamTexture.deviceName = WebCamTexture.devices[currentCamera].name;
+    webcamTexture.Play ();
+    showCameras ();
+  }
   
   // Start is called before the first frame update
   void Start()
   {
     webcamTexture = new WebCamTexture ();
-    
+    showCameras ();
+            
     camTexMaterial.mainTexture = webcamTexture;
     webcamTexture.Play ();
     
@@ -88,7 +120,7 @@ public class FetchPose : MonoBehaviour
   // Update is called once per frame
   void Update()
   {
-    if (dataReady && Input.GetAxis ("Fire1") > 0)
+    if (dataReady && (overrideCapture || (Input.GetAxis ("Fire1") > 0)))
     {
       float startTime = Time.realtimeSinceStartup;
 //       float [] pose = retrievePose ();
@@ -97,6 +129,7 @@ public class FetchPose : MonoBehaviour
       Debug.Log ("Pose tracked in " + (endTime - startTime).ToString ("F6") + " seconds");
       
       poseVisualizer.updatePose (pose);
+      poseTransmitter.updatePose (pose);
     }
   }
   
