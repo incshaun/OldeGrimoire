@@ -27,6 +27,10 @@ if [ ! -f "tensorflow/lite/tools/make/downloads/flatbuffers/include/flatbuffers/
 
     # missing functions, apparently related to neon and eigen.
     cat tensorflow/lite/tools/make/downloads/eigen/Eigen/src/Core/arch/NEON/Complex.h | sed -z 's/Packet2d eq_swapped = vreinterpretq_f64_u32(vrev64q_u32(vreinterpretq_u32_f64(eq)))/Packet2d eq_swapped = (float64x2_t)(vrev64q_u32((uint32x4_t)(eq)))/g'> tensorflow/lite/tools/make/downloads/eigen/Eigen/src/Core/arch/NEON/Complex.h.a; mv tensorflow/lite/tools/make/downloads/eigen/Eigen/src/Core/arch/NEON/Complex.h.a tensorflow/lite/tools/make/downloads/eigen/Eigen/src/Core/arch/NEON/Complex.h
+    
+    # for arm32, issue with missing std::round and 
+    sed -i '19i#ifdef SPECIAL_ARM32\nnamespace std {\nfloat round (float x);\ndouble rint(double x);\n}\n#endif' tensorflow/lite/kernels/internal/round.h
+    sed -i '43i#ifdef SPECIAL_ARM32\nnamespace std {\nfloat round (float x) {return ::round (x); }\ndouble rint(double x) { return ::rint(x); }\n}\n#endif' tensorflow/lite/kernels/activations.cc
   )
 fi
 
@@ -64,6 +68,8 @@ rm -f tensorflow/lite/tools/make/gen/aarch64_armv8-a/lib/libtensorflow-lite.a
 rm -f Assets/Plugins/Android/libs/arm64-v8a/libposeinterface.so
 rm -f Assets/Plugins/x86_64/libposeinterface.so
 rm -f tensorflow/lite/tools/make/gen/linux_x86_64/lib/libtensorflow-lite.a
+rm -f tensorflow/lite/tools/make/gen/rpi_armv7l/lib/libtensorflow-lite.a
+rm -f Assets/Plugins/Android/libs/armeabi-v7a/libposeinterface.so
 
 if [ ! -f "tensorflow/lite/tools/make/gen/linux_x86_64/lib/libtensorflow-lite.a" ]; then
   echo "Building Tensorflow Lite for x86_64 platform"
@@ -78,7 +84,7 @@ if [ ! -f "tensorflow/lite/tools/make/gen/linux_x86_64/lib/libtensorflow-lite.a"
   )
 fi
 
-if [ ! -f " a" ]; then
+if [ ! -f "tensorflow/lite/tools/make/gen/aarch64_armv8-a/lib/libtensorflow-lite.a" ]; then
   echo "Building Tensorflow Lite for ARM64 platform"
   (
     mkdir -p third_party
@@ -88,7 +94,21 @@ if [ ! -f " a" ]; then
     
     ANDROID_NDK=~/android-sdks/ndk/16.1.4479499/
     
-    make TARGET=aarch64 TARGET_TOOLCHAIN_PREFIX=$ANDROID_NDK/toolchains/aarch64-linux-android-4.9/prebuilt/linux-x86_64/bin/aarch64-linux-android- EXTRA_CXXFLAGS+="-D__ANDROID_API__=26 -DANDROID --sysroot=$ANDROID_NDK/sysroot -isystem $ANDROID_NDK/sysroot/usr/include/aarch64-linux-android  -isystem $ANDROID_NDK/sources/cxx-stl/gnu-libstdc++/4.9/include -isystem $ANDROID_NDK/sources/cxx-stl/gnu-libstdc++/4.9/libs/arm64-v8a/include -isystem $ANDROID_NDK/sources/cxx-stl/gnu-libstdc++/4.9/include/backward -isystem $ANDROID_NDK/sysroot/usr/include -isystem $ANDROID_NDK/sysroot/usr/include/aarch64-linux-android -D_GLIBCXX_USE_C99 -std=c11" -C `pwd` -f tensorflow/lite/tools/make/Makefile lib
+    make TARGET=aarch64 TARGET_TOOLCHAIN_PREFIX=$ANDROID_NDK/toolchains/aarch64-linux-android-4.9/prebuilt/linux-x86_64/bin/aarch64-linux-android- EXTRA_CXXFLAGS+="-D__ANDROID_API__=26 -DANDROID --sysroot=$ANDROID_NDK/sysroot -isystem $ANDROID_NDK/sysroot/usr/include/aarch64-linux-android  -isystem $ANDROID_NDK/sources/cxx-stl/gnu-libstdc++/4.9/include -isystem $ANDROID_NDK/sources/cxx-stl/gnu-libstdc++/4.9/libs/arm64-v8a/include -isystem $ANDROID_NDK/sources/cxx-stl/gnu-libstdc++/4.9/include/backward -isystem $ANDROID_NDK/sysroot/usr/include -isystem $ANDROID_NDK/sysroot/usr/include/aarch64-linux-android -D_GLIBCXX_USE_C99 -std=c++11 -std=c11" -C `pwd` -f tensorflow/lite/tools/make/Makefile lib
+  )
+fi
+
+if [ ! -f "tensorflow/lite/tools/make/gen/rpi_armv7l/lib/libtensorflow-lite.a" ]; then
+  echo "Building Tensorflow Lite for ARM32 platform"
+  (
+    mkdir -p third_party
+    mkdir -p third_party/eigen3
+    ln -s `pwd`/tensorflow/lite/tools/make/downloads/eigen/Eigen third_party/eigen3/
+    ln -s `pwd`/tensorflow/lite/tools/make/downloads/eigen/unsupported third_party/eigen3/
+    
+    ANDROID_NDK=~/android-sdks/ndk/16.1.4479499/
+    
+    make TARGET=rpi TARGET_TOOLCHAIN_PREFIX=$ANDROID_NDK/toolchains/arm-linux-androideabi-4.9/prebuilt/linux-x86_64/bin/arm-linux-androideabi- EXTRA_CXXFLAGS+="-DSPECIAL_ARM32 -D__ANDROID_API__=26 -DANDROID --sysroot=$ANDROID_NDK/sysroot -isystem $ANDROID_NDK/sysroot/usr/include/arm-linux-androideabi  -isystem $ANDROID_NDK/sources/cxx-stl/gnu-libstdc++/4.9/include -isystem $ANDROID_NDK/sources/cxx-stl/gnu-libstdc++/4.9/libs/armeabi-v7a/include -isystem $ANDROID_NDK/sources/cxx-stl/gnu-libstdc++/4.9/include/backward -isystem $ANDROID_NDK/sysroot/usr/include -isystem $ANDROID_NDK/sysroot/usr/include/arm-linux-androideabi -std=c++11 -std=c11" -C `pwd` -f tensorflow/lite/tools/make/Makefile lib
   )
 fi
 
@@ -126,6 +146,24 @@ if [ -f "Assets/Scripts/poseinterface.cc" ]; then
       $ANDROID_NDK/toolchains/aarch64-linux-android-4.9/prebuilt/linux-x86_64/bin/aarch64-linux-android-g++ -D__ANDROID_API__=26 --sysroot=$ANDROID_NDK/platforms/android-26/arch-arm64/ -isystem $ANDROID_NDK/sysroot/usr/include/aarch64-linux-android -std=c++14  -DANDROID -shared -fPIC -oAssets/Plugins/Android/libs/arm64-v8a/libposeinterface.so -Wl,--whole-archive,-soname,libposeinterface.so poseinterface.o tensorflow/lite/tools/make/gen/aarch64_armv8-a/lib/libtensorflow-lite.a $ANDROID_NDK/sources/cxx-stl/gnu-libstdc++/4.9/libs/arm64-v8a/libgnustl_static.a $ANDROID_NDK/platforms/android-26/arch-arm64/usr/lib/libz.a -lGLESv3 -Wl,--no-whole-archive
     )
   fi
+
+  if [ ! -f "Assets/Plugins/Android/libs/armeabi-v7a/libposeinterface.so" ]; then
+    echo "Building unity interface library, ARM32 version."
+    (
+      mkdir -p Assets
+      mkdir -p Assets/Plugins/
+      mkdir -p Assets/Plugins/Android/
+      mkdir -p Assets/Plugins/Android/libs/
+      mkdir -p Assets/Plugins/Android/libs/armeabi-v7a
+      
+      ANDROID_NDK=~/android-sdks/ndk/16.1.4479499/
+      
+      $ANDROID_NDK/toolchains/arm-linux-androideabi-4.9/prebuilt/linux-x86_64/bin/arm-linux-androideabi-g++ -D__ANDROID_API__=26 --sysroot=$ANDROID_NDK/sysroot -isystem $ANDROID_NDK/sysroot/usr/include/arm-linux-androideabi   -DANDROID -rdynamic -shared -fPIC Assets/Scripts/poseinterface.cc -c -I . -I tensorflow/lite/tools/make/downloads/flatbuffers/include/ -std=c++14 -isystem $ANDROID_NDK/sources/cxx-stl/gnu-libstdc++/4.9/include -isystem $ANDROID_NDK/sources/cxx-stl/gnu-libstdc++/4.9/libs/armeabi-v7a/include -isystem $ANDROID_NDK/sources/cxx-stl/gnu-libstdc++/4.9/include/backward -isystem $ANDROID_NDK/sysroot/usr/include -isystem $ANDROID_NDK/sysroot/usr/include/arm-linux-androideabi
+      
+      $ANDROID_NDK/toolchains/arm-linux-androideabi-4.9/prebuilt/linux-x86_64/bin/arm-linux-androideabi-g++ -D__ANDROID_API__=26 --sysroot=$ANDROID_NDK/platforms/android-26/arch-arm/ -isystem $ANDROID_NDK/sysroot/usr/include/arm-linux-androideabi -std=c++14  -DANDROID -shared -fPIC -oAssets/Plugins/Android/libs/armeabi-v7a/libposeinterface.so -Wl,--whole-archive,-soname,libposeinterface.so poseinterface.o tensorflow/lite/tools/make/gen/rpi_armv7l/lib/libtensorflow-lite.a $ANDROID_NDK/sources/cxx-stl/gnu-libstdc++/4.9/libs/armeabi-v7a/libgnustl_static.a $ANDROID_NDK/platforms/android-26/arch-arm/usr/lib/libz.a -lGLESv3 -Wl,--no-whole-archive
+    )
+  fi
+  
   
 fi
 
