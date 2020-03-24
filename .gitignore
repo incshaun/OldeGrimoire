@@ -48,6 +48,12 @@ Packages/
 !**/Standard\ Assets/assets.txt*
 
 tensorflow/
-Photon/
 Oculus/
 TextMesh\ Pro/
+
+**/Photon/*
+!**/Photon/PhotonUnityNetworking/
+**/Photon/PhotonUnityNetworking/*
+!**/Photon/PhotonUnityNetworking/Resources/
+**/Photon/PhotonUnityNetworking/Resources/*
+!**/Photon/PhotonUnityNetworking/Resources/PhotonServerSettings.asset*

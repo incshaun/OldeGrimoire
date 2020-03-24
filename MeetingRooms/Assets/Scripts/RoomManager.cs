@@ -9,7 +9,9 @@ public class RoomManager : MonoBehaviourPunCallbacks
 {
   public GameObject roomPrefab;
   public Canvas roomCanvas;
-  
+
+    private bool allowingJoining = false;
+
 //   List <string> rooms = new List <string> ();
   List <GameObject> displayRooms = new List <GameObject> ();
   
@@ -33,8 +35,9 @@ public class RoomManager : MonoBehaviourPunCallbacks
     }
     GameObject room = Instantiate (roomPrefab);
     room.transform.SetParent (roomCanvas.transform);
-    room.GetComponent <DisplayRoom> ().setName (name);
-    displayRooms.Add (room);
+        room.GetComponent<DisplayRoom>().setName(name);
+        room.GetComponent<LocalRoomBehaviour>().setManager(this);
+        displayRooms.Add (room);
     return room;    
   }
   
@@ -57,6 +60,12 @@ public class RoomManager : MonoBehaviourPunCallbacks
     }
   }
   
+  public void JoinRoom (string roomName)
+    {
+        allowingJoining = true;
+        PhotonNetwork.JoinRoom(roomName);
+    }
+
   public override void OnConnectedToMaster()
   {
     Debug.Log ("Connected to master.");
@@ -84,7 +93,7 @@ public class RoomManager : MonoBehaviourPunCallbacks
   {
     Debug.Log ("Joined lobby");
   }
-  
+
   public override void OnJoinedRoom ()
   {
     Debug.Log ("Room joined");
@@ -96,8 +105,11 @@ public class RoomManager : MonoBehaviourPunCallbacks
     string [] roomPropsInLobby = { "notices" };
     r.SetPropertiesListedInLobby (null);
     r.SetPropertiesListedInLobby (roomPropsInLobby);
-//    Debug.Log ("After room " + r.Name + " - " + r.CustomProperties["notices"] + " and " + p["notices"]);
-    PhotonNetwork.LeaveRoom ();
+        //    Debug.Log ("After room " + r.Name + " - " + r.CustomProperties["notices"] + " and " + p["notices"]);
+        if (!allowingJoining)
+        {
+            PhotonNetwork.LeaveRoom();
+        }
   }  
   
   public override void OnCreatedRoom ()
