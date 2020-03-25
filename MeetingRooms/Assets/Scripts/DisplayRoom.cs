@@ -19,6 +19,6 @@ public class DisplayRoom : MonoBehaviour
     
     public void display (string message)
     {
-      GetComponent <Text> ().text = message;
+      GetComponentInChildren <Text> ().text = message;
     }
 }

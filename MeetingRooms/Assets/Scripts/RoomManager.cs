@@ -4,6 +4,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using Photon.Pun;
 using Photon.Realtime;
+using UnityEngine.SceneManagement;
 
 public class RoomManager : MonoBehaviourPunCallbacks
 {
@@ -18,6 +19,33 @@ public class RoomManager : MonoBehaviourPunCallbacks
   void Start()
   {
     PhotonNetwork.ConnectUsingSettings();
+  }
+  
+  public static string getName (GameObject o)
+  {
+    if (o.GetComponent <PhotonView> () != null)
+    {
+      if ((o.GetComponent <PhotonView> ().Owner.NickName != null) && !(o.GetComponent <PhotonView> ().Owner.NickName.Equals ("")))
+      {
+        return o.GetComponent <PhotonView> ().Owner.NickName;
+      }
+      else
+      {
+        return o.GetComponent <PhotonView> ().Owner.UserId;
+      }
+    }
+    else
+    {
+      // Not a networked object. Just return the current player's id
+      if ((PhotonNetwork.NickName != null) && !(PhotonNetwork.NickName.Equals ("")))
+      {
+        return "X" + PhotonNetwork.NickName;
+      }
+      else
+      {
+        return "X" + PhotonNetwork.AuthValues.UserId;
+      }
+    }
   }
   
   // Find the display version of the room, creating one
@@ -64,6 +92,7 @@ public class RoomManager : MonoBehaviourPunCallbacks
     {
         allowingJoining = true;
         PhotonNetwork.JoinRoom(roomName);
+        PhotonNetwork.LoadLevel ("Campfire");
     }
 
   public override void OnConnectedToMaster()
@@ -100,7 +129,7 @@ public class RoomManager : MonoBehaviourPunCallbacks
     Room r = PhotonNetwork.CurrentRoom;
     Debug.Log ("In room " + r.Name + " - " + r.CustomProperties["notices"]);
     ExitGames.Client.Photon.Hashtable p = r.CustomProperties;
-    p["notices"] += PhotonNetwork.AuthValues.UserId + " was here " + Time.time + "\n";
+    p["notices"] += RoomManager.getName (this.gameObject) + " was here " + Time.time + "\n";
     r.SetCustomProperties (p);
     string [] roomPropsInLobby = { "notices" };
     r.SetPropertiesListedInLobby (null);
