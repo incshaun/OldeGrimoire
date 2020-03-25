@@ -36,7 +36,6 @@ public class AvatarActions : MonoBehaviourPun
   {
     if (photonView.IsMine == true || PhotonNetwork.IsConnected == false)
     {
-      Debug.Log ("Setting callback " + this + " " + photonView.IsMine + " " + PhotonNetwork.IsConnected);
       setButtonCallbacks ();
       transform.Find ("Camera").gameObject.SetActive (true);
     }
@@ -64,17 +63,28 @@ public class AvatarActions : MonoBehaviourPun
   {
     move = 1.0f;
   }
+  
+  // Write a message in the "talk" custom property
+  // which is restricted just to this room. 
   public void Talk ()
   {
-    
+    GameObject t = GameObject.Find ("Canvas/TalkMessage/Text");
+    if (t != null)
+    {
+      Room r = PhotonNetwork.CurrentRoom;
+      ExitGames.Client.Photon.Hashtable p = r.CustomProperties;
+      p["talk"] += RoomManager.getName (this.gameObject) + ":" + Time.time + ":" + t.GetComponent <Text> ().text + "\n";
+      r.SetCustomProperties (p);
+    }
   }
 
+  // Write a message into the "notices" custom property
+  // which is shared with the lobby.
   public void Lobby ()
   {
     GameObject t = GameObject.Find ("Canvas/LobbyMessage/Text");
     if (t != null)
     {
-      Debug.Log ("Lobby message: " + t.GetComponent <Text> ().text);
       Room r = PhotonNetwork.CurrentRoom;
       ExitGames.Client.Photon.Hashtable p = r.CustomProperties;
       p["notices"] = RoomManager.getName (this.gameObject) + ":" + Time.time + ":" + t.GetComponent <Text> ().text + "\n";

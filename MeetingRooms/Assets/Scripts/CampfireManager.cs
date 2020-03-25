@@ -3,11 +3,14 @@ using System.Collections.Generic;
 using UnityEngine;
 using Photon.Pun;
 using Photon.Realtime;
+using System;
+using System.Linq;
 
 public class CampfireManager : MonoBehaviourPunCallbacks
 {
   public TextMesh roomLabel;
   public GameObject avatarPrefab;
+  public TextMesh messageBoard;
   
   public override void OnJoinedRoom ()
   {
@@ -24,6 +27,7 @@ public class CampfireManager : MonoBehaviourPunCallbacks
     }
     
     PhotonNetwork.Instantiate (avatarPrefab.name, new Vector3 (), Quaternion.identity, 0);
+    OnRoomPropertiesUpdate (PhotonNetwork.CurrentRoom.CustomProperties);
   }
 
   public void LeaveRoom ()
@@ -31,4 +35,13 @@ public class CampfireManager : MonoBehaviourPunCallbacks
     PhotonNetwork.LeaveRoom();
     PhotonNetwork.LoadLevel ("MeetingRooms");
   }
+  
+  public override void OnRoomPropertiesUpdate (ExitGames.Client.Photon.Hashtable propertiesThatChanged)
+  {
+    Debug.Log ("Room property update");
+    // Trim last n lines.
+    int n = 10;
+    messageBoard.text = string.Join (Environment.NewLine, ((string) propertiesThatChanged["talk"]).Split (Environment.NewLine.ToCharArray()).Reverse ().Take (n).Reverse ().ToArray ());
+  }
+  
 }
