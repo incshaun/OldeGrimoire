@@ -9,10 +9,10 @@ using System.Net;
 using System.IO;
 
 public class MoveWithButtons : MonoBehaviour {
-
+  
   public Text statusText;
   
-  public Material mapMaterial;
+  public MeshFilter mapObject;
   
   public GameObject marker;
   public GameObject mapPlane;
@@ -28,7 +28,7 @@ public class MoveWithButtons : MonoBehaviour {
     // example.
     return true ;
   }
-
+  
   void Start ()
   {
     ServicePointManager.ServerCertificateValidationCallback = TrustCertificate;
@@ -48,32 +48,105 @@ public class MoveWithButtons : MonoBehaviour {
     longitude = x / Mathf.Pow (2.0f, zoom) * 360.0f - 180.0f;
     latitude = 180.0f / Mathf.PI * Mathf.Atan (0.5f * (Mathf.Exp (n) - Mathf.Exp (-n)));
   }
-
+  
+  private float [] convertElevationTexture (Texture2D tex, out float minheight, out float maxheight)
+  {
+    float [] htexdata = new float [tex.width * tex.height];
+    bool setlimits = false;
+    minheight = 0.0f;
+    maxheight = 0.0f;
+    
+    for (int y = 0; y < tex.height; y++)
+    {
+      for (int x = 0; x < tex.width; x++)
+      {
+        Color a = tex.GetPixel (x, y);
+        float height = ((a.r * 255.0f * 256.0f) + (a.g * 255.0f) + (a.b * 255.0f / 256.0f)) - 32768.0f;
+        htexdata[y * tex.width + x] = height;
+        
+        if ((!setlimits) || (height < minheight))
+        {
+          minheight = height;
+        }
+        if ((!setlimits) || (height > maxheight))
+        {
+          maxheight = height;
+        }
+        setlimits = true;
+      }
+    }
+    return htexdata;
+  }
+  
+  private void updateMesh (Texture2D tex, int mwidth, int mheight, float heightrange)
+  {
+    float minheight;
+    float maxheight;
+    float [] heighttex = convertElevationTexture (tex, out minheight, out maxheight);
+    
+    Vector3 [] vertices = new Vector3 [(mwidth + 1) * (mheight + 1)];
+    int [] triangles = new int[6 * mwidth * mheight];
+    
+    int triangleIndex = 0;
+    for (int y = 0; y < mheight + 1; y++)
+    {
+      for (int x = 0; x < mwidth + 1; x++)
+      {
+        float xc = (float) x / mwidth;
+        float zc = (float) y / mheight;
+        float yc = heighttex[(int) (zc * (tex.height - 1)) * tex.width + (int) (xc * (tex.width - 1))]; 
+        if (yc < 0.0f) yc = 0.0f;
+        yc = heightrange * (yc - minheight) / (maxheight - minheight);
+        vertices[y * (mwidth + 1) + x] = new Vector3 (xc - 0.5f, yc, zc - 0.5f);
+        
+        // Skip the last row/col
+        if ((x != mwidth) && (y != mheight))
+        {
+          int topLeft = y * (mwidth + 1) + x;
+          int topRight = topLeft + 1;
+          int bottomLeft = topLeft + mwidth + 1;
+          int bottomRight = bottomLeft + 1;
+          
+          triangles[triangleIndex++] = topRight;
+          triangles[triangleIndex++] = topLeft;
+          triangles[triangleIndex++] = bottomLeft;
+          triangles[triangleIndex++] = topRight;
+          triangles[triangleIndex++] = bottomLeft;
+          triangles[triangleIndex++] = bottomRight;
+        }
+      }
+    }
+    
+    Mesh m = new Mesh ();
+    m.vertices = vertices;
+    m.triangles = triangles;
+    m.RecalculateNormals();
+    mapObject.mesh = m;
+  }
+  
   private void updateTexture (int x, int y, int z)
   {
-    string url = "https://a.tile.openstreetmap.org/" + z + "/" + x + "/" + y + ".png";
-    // Similar process with another map service. 
-    // Avoid use without considering terms of service.
-    // string url = "https://mt.google.com/vt/lyrs=m&x=" + x + "&y=" + y + "&z=" + z;
+    // Elevation tiles, see: https://www.mapzen.com/blog/terrain-tile-service/
+    string url = "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/" + z + "/" + x + "/" + y + ".png";
     Debug.Log ("Retrieving: " + url);
     WebRequest www = WebRequest.Create (url);
-    ((HttpWebRequest) www).UserAgent = "RetrievingMaps";
+    ((HttpWebRequest) www).UserAgent = "TerrainMaps";
     
     var response = www.GetResponse ();
     
     Texture2D tex = new Texture2D (2, 2);
     // Retrieve a large number of bytes - should be more than in a tile texture.
     ImageConversion.LoadImage (tex, new BinaryReader (response.GetResponseStream ()).ReadBytes (1000000)); 
-    mapMaterial.mainTexture = tex;
+    updateMesh (tex, 128, 128, 0.1f);
   }
-
+  
   private void updateMapView ()
   {
     int x;
     int y;
     getTileCoordinates (longitude, latitude, zoom, out x, out y);
     updateTexture (x, y, zoom);
-
+    
     // Place a marker at the current position on the tile.
     float cornerLatA;
     float cornerLongA;
@@ -95,7 +168,7 @@ public class MoveWithButtons : MonoBehaviour {
     zoom += dz;
     // Calculate step so that it takes a few button presses 
     // to move across a tile at that level.
-    float step = 0.3f * 1.0f / Mathf.Pow (2.0f, zoom);
+    float step = 1.0f * 1.0f / Mathf.Pow (2.0f, zoom);
     longitude += 360.0f * dx * step;
     latitude += 180.0f * dy * step;
     

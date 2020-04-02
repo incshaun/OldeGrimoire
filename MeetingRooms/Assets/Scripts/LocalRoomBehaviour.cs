@@ -19,14 +19,4 @@ public class LocalRoomBehaviour : MonoBehaviour
         Debug.Log("Entering room: " + roomName);
         roomManager.JoinRoom (roomName);
     }
-
-    void Start()
-    {
-        
-    }
-
-    void Update()
-    {
-        
-    }
 }
