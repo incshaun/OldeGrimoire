@@ -33,7 +33,7 @@ public class CampfireManager : MonoBehaviourPunCallbacks
   public void LeaveRoom ()
   {
     PhotonNetwork.LeaveRoom();
-    PhotonNetwork.LoadLevel ("MeetingRooms");
+    PhotonNetwork.LoadLevel ("MeetingRooms"); 
   }
   
   public override void OnRoomPropertiesUpdate (ExitGames.Client.Photon.Hashtable propertiesThatChanged)
