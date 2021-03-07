@@ -42,15 +42,6 @@ public class AnchorList : NetworkBehaviour {
     string vowels = "aeiouy";    
     counterName = "" + System.Char.ToUpper (consonants[Random.Range (0, consonants.Length)]) + vowels[Random.Range (0, vowels.Length)] + consonants[Random.Range (0, consonants.Length)];
     
-    // Find the debugging message.
-    monitor = GameObject.Find ("MonitorText").GetComponent <Text> ();
-    
-    if (isLocalPlayer)
-    {
-      // Find the component that adds anchors, and inform them where to find this service.
-      AnchorInteraction anchorAdder = GameObject.Find ("AnchorAdder").GetComponent <AnchorInteraction> ();
-      anchorAdder.anchorList = this;
-    }
   }
   
   // Get a new ID for each marker created.
@@ -63,14 +54,21 @@ public class AnchorList : NetworkBehaviour {
   // Copy an anchor into the cloud service. Call havePlaced when complete.
   public void createCloudAnchor (string label, Anchor anchor)
   {
+    monitor.text += "Adding anchor: Step 1";
     AsyncTask <CloudAnchorResult> done = XPSession.CreateCloudAnchor ((Anchor) anchor);
+    monitor.text += "Adding anchor: Step 2";
     done.ThenAction (x => havePlaced (label, x));
+    monitor.text += "Adding anchor: Step 3";
   }
   
   // Confirm that the anchor has been placed.
   public void havePlaced (string label, CloudAnchorResult result)
   {
     // Send the anchor details to the server.
+    monitor.text += "Adding anchor: Step 4";
+    Debug.Log ("Anchor result: " + result);
+    Debug.Log ("Anchor IDA: " + result.Anchor + " " + result.Response);
+    Debug.Log ("Anchor ID: " + result.Anchor.CloudId);
     CmdAddAnchor (result.Anchor.CloudId, label);
     monitor.text = "Anchor added to cloud: " + result.Response + "\n" + result.Anchor.CloudId;
   }
@@ -80,14 +78,21 @@ public class AnchorList : NetworkBehaviour {
   {
     string anchorID = "";
     string objectID = "";
-    StreamReader file = new StreamReader (Application.persistentDataPath + "/" + "cid.txt");
-    while ((anchorID = file.ReadLine ()) != null)
+    try
     {
-      objectID = file.ReadLine ();
-      updateList (anchorID, objectID);
-      monitor.text = "Retrieving anchor " + anchorID;
+      StreamReader file = new StreamReader (Application.persistentDataPath + "/" + "cid.txt");
+      while ((anchorID = file.ReadLine ()) != null)
+      {
+        objectID = file.ReadLine ();
+        updateList (anchorID, objectID);
+        monitor.text = "Retrieving anchor " + anchorID;
+      }
+      file.Close ();
     }
-    file.Close ();
+    catch (System.Exception)
+    {
+      // file does not exist yet.
+    }
   }
 
   // Make sure cloud anchors are persistent. On the server, write them all to file.
@@ -96,11 +101,18 @@ public class AnchorList : NetworkBehaviour {
     if (isServer)
     {
       StreamWriter file = new StreamWriter (Application.persistentDataPath + "/" + "cid.txt", false);
-      monitor.text = "";
+      if (monitor != null)
+      {
+        monitor.text = "";
+      }
       for (int i = 0; i < anchorDetails.Count; i++)
       {
         file.WriteLine (anchorDetails[i].anchor);
         file.WriteLine (anchorDetails[i].objectAtAnchor);
+        if (monitor != null)
+        {
+          monitor.text += "Written: " + anchorDetails[i].anchor + "\n";
+        }
       }
       file.Close ();
     }
@@ -114,6 +126,21 @@ public class AnchorList : NetworkBehaviour {
       retrieveAnchors ();	
     }
   }
+
+  public override void OnStartLocalPlayer ()
+  {
+    // Find the debugging message.
+    monitor = GameObject.Find ("MonitorText").GetComponent <Text> ();
+    Debug.Log ("Monitor: " + monitor + " " + isLocalPlayer);
+    
+    if (isLocalPlayer)
+    {
+      // Find the component that adds anchors, and inform them where to find this service.
+      AnchorInteraction anchorAdder = GameObject.Find ("AnchorAdder").GetComponent <AnchorInteraction> ();
+      anchorAdder.anchorList = this;
+      monitor.text += "Added AnchorList";
+    }
+  }      
   
   // When the client starts, set up the event handler for new anchor messages.
   public override void OnStartClient()

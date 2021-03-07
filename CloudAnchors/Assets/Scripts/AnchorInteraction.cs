@@ -19,6 +19,8 @@ public class AnchorInteraction : MonoBehaviour {
       return;
     }
     
+    updateMessage.text += "Touch at: " + touch.position;
+    
     // Screen touched, find a trackable in the image under the touch point.
     TrackableHit hit;
     if (Frame.Raycast(touch.position.x, touch.position.y, TrackableHitFlags.PlaneWithinPolygon |TrackableHitFlags.FeaturePointWithSurfaceNormal, out hit))
@@ -26,11 +28,14 @@ public class AnchorInteraction : MonoBehaviour {
       if (!(hit.Trackable is DetectedPlane) || Vector3.Dot(firstPersonCamera.transform.position - hit.Pose.position, hit.Pose.rotation * Vector3.up) >= 0)
       {
         // Hit a point or front of a plane.
+        updateMessage.text += "Hit " + anchorList;
+        
         // Create a local anchor on that trackable.
         Component anchor = hit.Trackable.CreateAnchor(hit.Pose);
         if (anchorList != null)
         {
           string label = anchorList.getLabel ();
+          updateMessage.text += "Adding anchor " + label;
           // Attach object to the anchor.
           anchorList.addInstanceToAnchor (label, anchor.transform, hit.Pose.position, hit.Pose.rotation);
           //Instantiate(markerPrefab, hit.Pose.position, hit.Pose.rotation);
