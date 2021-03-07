@@ -5,7 +5,11 @@ EditorBuildSettings:
   m_ObjectHideFlags: 0
   serializedVersion: 2
   m_Scenes:
-  - enabled: 1
-    path: Assets/Scenes/SampleScene.unity
+  - enabled: 0
+    path: Assets/Scenes/MutualPresence.unity
     guid: 99c9720ab356a0642a771bea13969a05
-  m_configObjects: {}
+  m_configObjects:
+    com.unity.xr.arcore.PlayerSettings: {fileID: 11400000, guid: 442fac2c37d025047a82b9fefb6b07bc,
+      type: 2}
+    com.unity.xr.management.loader_settings: {fileID: 11400000, guid: f8f3c777e47a944dfa23db9b46704bb7,
+      type: 2}

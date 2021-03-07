@@ -88,7 +88,7 @@ namespace UnityEngine.Networking
                     }
 
 //                    manager.networkAddress = GUI.TextField(new Rect(xpos + (int) (100 * scale), ypos, (int) (95 * scale), (int) (20 * scale)), manager.networkAddress);
-                    manager.networkAddress = GUI.TextField(new Rect(xpos + (int) (100 * scale), ypos, (int) (95 * scale), (int) (20 * scale)), "10.1.1.10");
+                    manager.networkAddress = GUI.TextField(new Rect(xpos + (int) (100 * scale), ypos, (int) (95 * scale), (int) (20 * scale)), "192.168.1.109");
                     ypos += spacing;
 
                     if (UnityEngine.Application.platform == RuntimePlatform.WebGLPlayer)
