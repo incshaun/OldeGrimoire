@@ -1,16 +1,28 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
-    <title>WebAR Application</title>
-    <script src="https://aframe.io/releases/0.9.0/aframe.min.js"></script>
-    <script src="https://cdn.rawgit.com/jeromeetienne/AR.js/1.6.2/aframe/build/aframe-ar.js"></script>
-  </head>  
-  <body>
-    <a-scene arjs>
-      <a-marker type="pattern" url="https://cdn.glitch.com/353fc54d-60c2-47f3-a84c-93884a45ed37%2Fpattern-marker.patt?1553573063454">
-        <a-obj-model src="https://cdn.glitch.com/353fc54d-60c2-47f3-a84c-93884a45ed37%2Fmonkey.obj?1553574134434" rotation="-90 0 0" color="#999999"></a-obj-model>
+    <meta
+      name="viewport"
+      content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0"
+    />
+    <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
+    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
+  </head>
+
+  <body style="margin : 0px; overflow: hidden;">
+
+    <a-scene embedded arjs>
+      <a-marker
+        type="pattern"
+        url="https://cdn.glitch.com/3fb0eec5-5fbf-4b6a-b910-bed35b5d2b9f%2Fpattern-m4.patt?v=1615261558738"
+      >
+        <a-obj-model
+          src="https://cdn.glitch.com/3fb0eec5-5fbf-4b6a-b910-bed35b5d2b9f%2Fmonkey.obj?v=1615166121529"
+          rotation="-90 0 0"
+          color="#999999"
+        ></a-obj-model>
       </a-marker>
-    <a-entity camera></a-entity>
+      <a-entity camera></a-entity>
     </a-scene>
   </body>
 </html>
