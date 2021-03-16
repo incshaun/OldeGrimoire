@@ -36,7 +36,7 @@ public class FoundationStatus : MonoBehaviour
         devices[0].TryGetFeatureValue (UnityEngine.XR.CommonUsages.colorCameraRotation, out rotation);
         inputStatusText.text += position.ToString ("F4") + ", " + rotation.ToString ("F4") + " ";
       }
-
+      
       // This code is not strictly necessary. However it is handy when encountering
       // a new device, to see what input is available.
       var inputDevices = new List<UnityEngine.XR.InputDevice>();

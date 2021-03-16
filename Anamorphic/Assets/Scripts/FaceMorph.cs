@@ -43,13 +43,15 @@ public class FaceMorph : MonoBehaviour
   {
     canonicalMesh = canonicalObject.GetComponent <SkinnedMeshRenderer> ().sharedMesh;
     
-    morphStatusText.text = "Size " + canonicalMesh.vertices.Length;
-    
     createMapping ();
     
     faceSource.faceHandler += drawFace;
   }
   
+  // Presently only using the first neighbour found, but with the
+  // intention that smoother animation could be achieved by using
+  // several close neighbours from the control mesh to drive the
+  // deformation.
   private int [] findWeightsAndBasis (Vector3 p, Vector3 [] source)
   {
     int numNeighbours = 4; // How many points to use as the basis.
@@ -65,7 +67,6 @@ public class FaceMorph : MonoBehaviour
     
     best.Sort ((x, y) => x.Item2.CompareTo (y.Item2));
     
-    //       Debug.Log ("aa " + best[0] + " " + best[1]);
     int [] basisIndices = new int [numNeighbours];
     float [] basisWeights = new float [numNeighbours];
     for (int i = 0; i < numNeighbours; i++)
