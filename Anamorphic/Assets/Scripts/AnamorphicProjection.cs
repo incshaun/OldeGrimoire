@@ -70,6 +70,7 @@ public class AnamorphicProjection : MonoBehaviour {
                                                 bottom, top,
                                                 near, far);
     
+    GL.invertCulling = false;
     GetComponent <Camera> ().nearClipPlane = near;
     GetComponent <Camera> ().farClipPlane = far;
     GetComponent <Camera> ().projectionMatrix = anamorphicProjection;

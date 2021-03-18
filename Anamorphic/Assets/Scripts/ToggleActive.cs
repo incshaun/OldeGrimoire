@@ -11,30 +11,30 @@ public class ToggleActive : MonoBehaviour
     public List <GameObject> objects;
   }
   
-public List <GameObjectList> selections;
-
-private int currentSelection = 0;
-
-private void switchSelection ()
-{
-  if (selections.Count > 0)
+  public List <GameObjectList> selections;
+  
+  private int currentSelection = 0;
+  
+  private void switchSelection ()
   {
-    currentSelection = (currentSelection + 1) % selections.Count;
-    for (int i = 0; i < selections.Count; i++)
+    if (selections.Count > 0)
     {
-      foreach (GameObject g in selections[i].objects)
+      currentSelection = (currentSelection + 1) % selections.Count;
+      for (int i = 0; i < selections.Count; i++)
       {
-        g.SetActive (currentSelection == i);
+        foreach (GameObject g in selections[i].objects)
+        {
+          g.SetActive (currentSelection == i);
+        }
       }
     }
   }
-}
-
-    void Update()
+  
+  void Update()
+  {
+    if (Input.GetMouseButtonDown (0))
     {
-      if (Input.GetMouseButtonDown (0))
-      {
-        switchSelection ();
-      }
+      switchSelection ();
     }
+  }
 }

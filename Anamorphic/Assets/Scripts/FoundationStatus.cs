@@ -13,10 +13,6 @@ public class FoundationStatus : MonoBehaviour
   public TextMeshProUGUI sessionStatusText;
   public TextMeshProUGUI inputStatusText;
   
-  void Start()
-  {
-  }
-  
   void Update()
   {
     // Update information from the ARSession object.
