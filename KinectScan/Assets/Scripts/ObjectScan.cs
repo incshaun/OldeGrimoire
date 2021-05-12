@@ -2,6 +2,7 @@
 using System.Collections;
 using Windows.Kinect;
 using System.IO;
+using UnityEditor;
 
 public class ObjectScan : MonoBehaviour
 {
@@ -15,10 +16,15 @@ public class ObjectScan : MonoBehaviour
     
     // Size of Unity mesh is limited, so down sample to fit this limit.
     private const int _DownsampleSize = 2;
-    private const double _DepthScale = 0.03f;
+    private const double _DepthScale = 0.12f;
     
     public ColorSourceManager colorManager;
     public DepthSourceManager depthManager;
+
+    private float timeDelay = -1.0f;
+    private bool timerStarted = false;
+
+    public float timeBeforeCapture = 0.1f;
 
     void Start()
     {
@@ -89,9 +95,35 @@ public class ObjectScan : MonoBehaviour
         gameObject.GetComponent<MeshRenderer> ().material.mainTexture = colorManager.GetColorTexture();
         RefreshData(depthManager.GetData(), colorManager.ColorWidth, colorManager.ColorHeight);
 
-        if (Input.GetAxis ("Fire1") > 0.0f)
+        if (Input.GetAxis("Fire1") > 0.0f)
         {
-            exportObj("scan");
+            timeDelay = timeBeforeCapture;
+            timerStarted = true;
+        }
+        if (timeDelay > 0.0f)
+        {
+            timeDelay -= Time.deltaTime;
+        }
+
+        if (timerStarted && (timeDelay < 0.0f))
+        {
+            timerStarted = false;
+
+            // For continuous capture. Recommend timeBeforeCapture of at least 1 s.
+            //timeDelay = timeBeforeCapture;
+            //timerStarted = true;
+
+            int count = 0;
+            string fn = "";
+            do
+            {
+                fn = "scan" + count.ToString("D4");
+                count++;
+            }
+            while (File.Exists(fn + ".obj"));
+            Debug.Log("Exporting: " + fn);
+            exportObj(fn);
+            EditorApplication.Beep();
         }
     }
     
