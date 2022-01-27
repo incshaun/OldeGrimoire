@@ -1,0 +1,17 @@
+mkdir ThirdParty
+mkdir ThirdParty/MathNet
+
+Download zip file for MathNet Numerics from https://github.com/mathnet/mathnet-numerics
+
+cd ThirdParty/MathNet/
+
+unzip  mathnet-numerics-master.zip mathnet-numerics-master/src/*
+mv mathnet-numerics-master/src/* .
+rm -r mathnet-numerics-master
+
+rm -r Numerics.Tests*
+rm -r TestData*
+rm -r Benchmark*
+rm -r Data.Matlab*
+rm -r Data.Tests*
+rm -r Data.Text*
