@@ -40,8 +40,8 @@ public class TestMenu : MonoBehaviour
         steps.Add (new StepDescription ("Place first object", placeFirst));
         steps.Add (new StepDescription ("Place second object", placeSecond));
         steps.Add (new StepDescription ("Grab first object", resetCoordinatesGrab));
-//         steps.Add (new StepDescription ("Drop object and reset", resetCoordinatesPlace));
-        steps.Add (new StepDescription ("Rotate object", replaceRotated));
+        steps.Add (new StepDescription ("Drop object and reset", resetCoordinatesPlace));
+//         steps.Add (new StepDescription ("Rotate object", replaceRotated));
         
         
         int order = 5;
@@ -59,7 +59,7 @@ public class TestMenu : MonoBehaviour
             var factorSvd = matrixA.Svd();
             Debug.Log ("SVD " + matrixA + " " + factorSvd.VT);
             
-            ICP a = new ICP ();
+//             ICP a = new ICP ();
 //             Matrix A = (Matrix) Matrix.Build.Dense(7,3,(i,j) => 10*i + j);
 //             Matrix B = (Matrix) Matrix.Build.Dense(7,3,(i,j) => i - 3 *(j+i));
 //             Debug.Log ("AAA " + a.best_fit_transform (A, B));
@@ -72,7 +72,7 @@ for (int i = 0; i < A.Length; i++)
     B[i] = Quaternion.AngleAxis (23.0f, new Vector3 (1, 0.4f, -0.6f)) * A[i] + new Vector3 (3, 2, 6);
 }
             
-            Matrix4x4 T = a.BestFit (A, B);
+            Matrix4x4 T = ICP.BestFit (A, B);
             Debug.Log ("Goh fit " + T);
             for (int i = 0; i < A.Length; i++)
             {
@@ -119,8 +119,8 @@ for (int i = 0; i < A.Length; i++)
         handLeft.transform.position = new Vector3 (-0.2f, 1.3f, 0.4f);
 //         handLeft.transform.position = new Vector3 (-0.2f, -1.3f, 0.4f);
         handLeft.transform.rotation = Quaternion.AngleAxis (0.0f, new Vector3 (0.0f, 1.0f, 0.0f));
-        manipulate.activateNext (); // select move object on menu.
-//         manipulate.activateReset (); // select reset coordinates on menu.
+//         manipulate.activateNext (); // select move object on menu.
+        manipulate.activateReset (); // select reset coordinates on menu.
         manipulate.handleControllerButton (); // click controller.
     }
     

@@ -5,9 +5,12 @@ using MathNet.Numerics.LinearAlgebra.Single;
 
 // Derived from: https://github.com/ClayFlannigan/icp
 // For: Iterative Closest Point
+
+// Derivation is described in: 
+// Sorkine-Hornung, O. and Rabinovich, M., 2017. Least-squares rigid motion using svd. Computing, 1(1), pp.1-5.
 public class ICP
 {
-  public Matrix4x4 BestFit (Vector3 [] A, Vector3 [] B)
+  static public Matrix4x4 BestFit (Vector3 [] A, Vector3 [] B)
   {
     int n = A.Length;
     int m = 3;
@@ -36,12 +39,12 @@ public class ICP
     return T;
   }
   
-  private Vector findCentroid (Matrix A)
+  static private Vector findCentroid (Matrix A)
   {
       return (Vector) (A.ColumnSums () / A.RowCount);
   }
   
-  private Matrix offset (Matrix A, Vector os)
+  static private Matrix offset (Matrix A, Vector os)
   {
     Matrix AA = (Matrix) A.Clone ();
     Vector rowbfr = (Vector) Vector.Build.Dense (AA.ColumnCount);
@@ -54,7 +57,7 @@ public class ICP
     return AA;
   }
   
-  private Matrix best_fit_transform (Matrix A, Matrix B)
+  static private Matrix best_fit_transform (Matrix A, Matrix B)
   {
 //     Calculates the least-squares best-fit transform that maps corresponding points A to B in 3 spatial dimensions
 //     Input:
@@ -89,16 +92,21 @@ public class ICP
     Debug.Log ("SVD " + U + " " + S + " " + Vt + " " + R);
     
     // special reflection case
-    if (R.Determinant () < 0)
-    {
-      Debug.Log ("Before " + Vt + " " + R);
-       Vector row = (Vector) Vector.Build.Dense (Vt.ColumnCount);
-       Vt.Row (m - 2, row);
-       row.Multiply (-1, row);
-       Vt.SetRow (m - 2, row);
-       R = (Matrix) Vt.Transpose ().Multiply (U.Transpose ());
-      Debug.Log ("After " + Vt + " " + R);
-    }
+    // There is a reflection that creeps into the solution - not convinced this is fixing it, or causing it.
+    float det = R.Determinant ();
+    Matrix D = (Matrix) Matrix.Build.Dense (m, m, (i,j) => i == j ? 1 : 0);
+    D[m - 1, m - 1] = det;
+    R = (Matrix) Vt.Transpose ().Multiply (D.Multiply (U.Transpose ()));
+//     if (det < 0)
+//     {
+//       Debug.Log ("Before " + Vt + " " + R);
+//        Vector row = (Vector) Vector.Build.Dense (Vt.ColumnCount);
+//        Vt.Row (m - 2, row);
+//        row.Multiply (-1, row);
+//        Vt.SetRow (m - 2, row);
+//        R = (Matrix) Vt.Transpose ().Multiply (U.Transpose ());
+//       Debug.Log ("After " + Vt + " " + R);
+//     }
 
     // translation
 //     Vector t = centroid_B.Transpose () - R.Multiply (centroid_A.Transpose ());
@@ -118,6 +126,10 @@ public class ICP
 
 //    return null;
   }
+  
+  // These will need to be ported for any generic point cloud matching. For the moment, we
+  // know what the corresponding points are, so don't need to iterate to find corresponding 
+  // points.
 /*
   void nearest_neighbor(Vector3 [] src, Vector3 [] dst)
   {

@@ -15,3 +15,7 @@ rm -r Benchmark*
 rm -r Data.Matlab*
 rm -r Data.Tests*
 rm -r Data.Text*
+rm -r Providers.MKL*
+rm -r Providers.OpenBLAS*
+rm -r Providers.CUDA*
+rm -r NativeProviders*

@@ -22,9 +22,18 @@ public class ManipulateNext : MonoBehaviour
     // With some elements for debounce.
     //     private bool heldInitial = false;
     //     private bool heldAndReleased = false;
+
+    public class Anchor
+    {
+        public Transform anchor;
+        public Transform sceneElement;
+    };
+
+    private Transform activeObject = null;
+    private Dictionary <Transform, Anchor> anchorPoints = new Dictionary <Transform, Anchor> ();
     
-    private Transform heldObject = null;
-    private Transform heldObjectClone = null;
+//     private Transform heldObject = null;
+//     private Transform heldObjectClone = null;
 //     private Transform originalParent = null;
     
     [Tooltip ("Controller input used to trigger selection/deselection")]
@@ -43,11 +52,56 @@ public class ManipulateNext : MonoBehaviour
         label.text = "Click to relocate closest object";
     }
     
+    public void updateTransformation ()
+    {
+        if (activeObject != null)
+        {
+            Vector3 [] local = new Vector3 [anchorPoints.Keys.Count];
+            Vector3 [] global = new Vector3 [anchorPoints.Keys.Count];
+            int i = 0;
+            foreach (KeyValuePair <Transform, Anchor> entry in anchorPoints)
+            {
+                local[i] = entry.Value.anchor.position;
+                global[i] = entry.Value.sceneElement.localPosition;
+                
+                i++;
+            }
+            // This aligns multiple anchors, but typically requires at least 3 non-colinear 
+            // points to get a reliable fit.
+            Matrix4x4 locToGlob = ICP.BestFit (global, local);
+            
+            // This just references relative to a single anchor point, but takes orientation
+            // into account.
+    //                     Matrix4x4 initial = activeObject.localToWorldMatrix;
+    //                     Matrix4x4 final = anchorPoints[activeObject].anchor.localToWorldMatrix;
+    //                     Matrix4x4 locToGlob = sceneRoot.transform.localToWorldMatrix * final * initial.inverse;
+            Vector3 pos;
+            Quaternion q;
+            Vector3 s;
+            pos = locToGlob.MultiplyPoint (Vector3.zero);
+            q = locToGlob.rotation;
+            s = locToGlob.lossyScale;
+            
+            sceneRoot.position = pos;
+            sceneRoot.rotation = q;
+            sceneRoot.localScale = s;
+            
+            foreach (KeyValuePair <Transform, Anchor> entry in anchorPoints)
+            {
+                entry.Value.anchor.GetComponent <LineRenderer> ().positionCount = 2;
+                entry.Value.anchor.GetComponent <LineRenderer> ().SetPosition (0, entry.Value.anchor.position);
+                entry.Value.anchor.GetComponent <LineRenderer> ().SetPosition (1, entry.Value.sceneElement.position);                
+            }
+            
+        }
+    }
+    
     public void handleControllerButton ()
     {
         Debug.Log ("Controller button pressed");
         
-        if ((selectNext) && (heldObject == null))
+//         if ((selectNext) && (heldObject == null))
+        if ((selectNext) && (activeObject == null))
         {
             // find closest object, and attach.
             // Select all objects in the scene.
@@ -65,13 +119,24 @@ public class ManipulateNext : MonoBehaviour
                     bestDistance = distance;
                 }
             }
-            heldObject = bestObj;
-            Debug.Log ("Found " + heldObject +"xx");
+            activeObject = bestObj;
+//             heldObject = bestObj;
+//             Debug.Log ("Found " + heldObject +"xx");
             
-            heldObjectClone = Instantiate (heldObject); // clone it, for purposes of moving.
             
-            if ((heldObject != null) && (heldObject != sceneRoot))
+//             heldObjectClone = Instantiate (heldObject); // clone it, for purposes of moving.
+            
+//             if ((heldObject != null) && (heldObject != sceneRoot))
+            if ((activeObject != null) && (activeObject != sceneRoot))
             {
+                // register anchor if it doesn't already exist.
+                if (!anchorPoints.ContainsKey (activeObject))
+                {
+                    Anchor a = new Anchor ();
+                    a.anchor = Instantiate (activeObject);
+                    a.sceneElement = activeObject;
+                    anchorPoints[activeObject] = a;
+                }
 //                 if (resetCoords)
 //                 {
 //                     initial = heldObject.localToWorldMatrix;
@@ -79,16 +144,24 @@ public class ManipulateNext : MonoBehaviour
 //                     orgq = heldObject.localRotation;
 //                     orgs = heldObject.localScale;
 //                 }
-                
-//                 originalParent = heldObject.parent;
-                heldObjectClone.SetParent (transform, false);
-                heldObjectClone.localPosition = Vector3.zero;
-                heldObjectClone.localRotation = Quaternion.identity;
-                if (heldObjectClone.GetComponent <MeshRenderer> () != null)
+
+                anchorPoints[activeObject].anchor.SetParent (transform, false);
+                anchorPoints[activeObject].anchor.localPosition = Vector3.zero;
+                anchorPoints[activeObject].anchor.localRotation = Quaternion.identity;
+                if (anchorPoints[activeObject].anchor.transform.Find ("ShapeCube").GetComponent <MeshRenderer> () != null)
                 {
-                  heldObjectClone.GetComponent <MeshRenderer> ().material.color = new Color (0.8f, 0.3f, 0.5f, 0.3f);
+                  anchorPoints[activeObject].anchor.transform.Find ("ShapeCube").GetComponent <MeshRenderer> ().material.color = new Color (0.8f, 0.3f, 0.5f, 0.3f);
                 }
-                Debug.Log ("At " + heldObject.position +"xx");
+
+//                 originalParent = heldObject.parent;
+//                 heldObjectClone.SetParent (transform, false);
+//                 heldObjectClone.localPosition = Vector3.zero;
+//                 heldObjectClone.localRotation = Quaternion.identity;
+//                 if (heldObjectClone.GetComponent <MeshRenderer> () != null)
+//                 {
+//                   heldObjectClone.GetComponent <MeshRenderer> ().material.color = new Color (0.8f, 0.3f, 0.5f, 0.3f);
+//                 }
+//                 Debug.Log ("At " + heldObject.position +"xx");
                 
                 selectNext = false;
 //                 heldInitial = true;
@@ -103,7 +176,8 @@ public class ManipulateNext : MonoBehaviour
         }
         else // make sure release requires a new event
         {
-            if (heldObject != null)
+//             if (heldObject != null)
+            if (activeObject != null)
             {
 //                 // drop object.
 //                 if (resetCoords)
@@ -126,37 +200,31 @@ public class ManipulateNext : MonoBehaviour
 //                 heldAndReleased = false;
                 selectNext = false;
                 
+                anchorPoints[activeObject].anchor.SetParent (null);
                 label.text = "Object placed";
                 
                 if (resetCoords)
                 {
-                    Matrix4x4 initial = heldObject.localToWorldMatrix;
-                    Matrix4x4 final = heldObjectClone.localToWorldMatrix;
-                    Matrix4x4 locToGlob = sceneRoot.transform.localToWorldMatrix * final * initial.inverse;
-                    Vector3 pos;
-                    Quaternion q;
-                    Vector3 s;
-                    pos = locToGlob.MultiplyPoint (Vector3.zero);
-                    q = locToGlob.rotation;
-                    s = locToGlob.lossyScale;
-                    
-                    sceneRoot.position = pos;
-                    sceneRoot.rotation = q;
-                    sceneRoot.localScale = s;
-                    Debug.Log ("Inverse " + initial + " " + final + " " + locToGlob + " " + pos + " " + q + " " + s + " " + sceneRoot + heldObject.localPosition + " " + heldObject.localRotation + " " + heldObject.localScale);
+                    updateTransformation ();
                     
                     label.text = "Local to global mapping updated";
                     resetCoords = false;
                 }
                 else
                 {
-                    heldObject.position = heldObjectClone.position;
-                    heldObject.rotation = heldObjectClone.rotation;
-                    heldObject.localScale = heldObjectClone.localScale;
+//                     heldObject.position = heldObjectClone.position;
+//                     heldObject.rotation = heldObjectClone.rotation;
+//                     heldObject.localScale = heldObjectClone.localScale;
+                    activeObject.position = anchorPoints[activeObject].anchor.position;
+                    activeObject.rotation = anchorPoints[activeObject].anchor.rotation;
+                    activeObject.localScale = anchorPoints[activeObject].anchor.localScale;
+                    
+                    Destroy (anchorPoints[activeObject].anchor.gameObject);
+                    anchorPoints.Remove (activeObject);
                 }
                 
-                heldObject = null;
-                Destroy (heldObjectClone.gameObject);
+                activeObject = null;
+//                Destroy (heldObjectClone.gameObject);
                 
                 // Update the scene layout now that something has changed.
                 if (GetComponent <PersistScene> () != null)
@@ -302,5 +370,7 @@ public class ManipulateNext : MonoBehaviour
     void Update ()
     {
         createControllerEvents ();
+        
+        updateTransformation ();
     }
 }
