@@ -10,18 +10,9 @@ public class ManipulateNext : MonoBehaviour
     
     public TextMeshPro label;
     
-    private bool selectNext = false;
+    private enum ActionMode { None, Move, Reset, PlacePlane };
     
-    private bool resetCoords = false;
-//     private Matrix4x4 initial;
-//     private Matrix4x4 final;
-//     private              Vector3 orgpos;
-//     private                  Quaternion orgq;
-//     private              Vector3 orgs;
-    
-    // With some elements for debounce.
-    //     private bool heldInitial = false;
-    //     private bool heldAndReleased = false;
+    private ActionMode action = ActionMode.None;
 
     public class Anchor
     {
@@ -41,15 +32,20 @@ public class ManipulateNext : MonoBehaviour
     
     public void activateNext ()
     {
-        selectNext = true;
+        action = ActionMode.Move;
         label.text = "Click to select closest object";
     }
     
     public void activateReset ()
     {
-        selectNext = true;
-        resetCoords = true;
+        action = ActionMode.Reset;
         label.text = "Click to relocate closest object";
+    }
+    
+    public void placePlane ()
+    {
+        action = ActionMode.PlacePlane;
+        label.text = "Click to create plane";        
     }
     
     public void updateTransformation ()
@@ -96,12 +92,142 @@ public class ManipulateNext : MonoBehaviour
         }
     }
     
+    private Transform findClosest ()
+    {
+        // find closest object, and attach.
+        // Select all objects in the scene.
+        Transform [] obj = sceneRoot.GetComponentsInChildren <Transform> ();
+        // Find the closest.
+        float bestDistance = 0.0f;
+        Transform bestObj = null;
+        foreach (Transform t in obj)
+        {
+            float distance = Vector3.Distance (transform.position, t.position);
+            if (((bestObj == null) || (distance < bestDistance)) && (t.gameObject.GetComponent <Persistable> () != null))
+            {
+                bestObj = t;
+                bestDistance = distance;
+            }
+        }
+        return bestObj;
+    }
+    
     public void handleControllerButton ()
     {
         Debug.Log ("Controller button pressed");
         
-//         if ((selectNext) && (heldObject == null))
-        if ((selectNext) && (activeObject == null))
+        switch (action)
+        {
+            case ActionMode.Move:
+            {
+                if (activeObject == null)
+                {
+                    activeObject = findClosest ();
+                    if ((activeObject != null) && (activeObject != sceneRoot))
+                    {
+                        activeObject.SetParent (transform, false);
+                        activeObject.localPosition = Vector3.zero;
+                        activeObject.localRotation = Quaternion.identity;
+                        label.text = "Place object";
+                    }
+                    else
+                    {
+                        label.text = "No object found";
+                    }
+                }
+                else // make sure release requires a new event
+                {
+                    if (activeObject != null)
+                    {
+                        activeObject.SetParent (sceneRoot);
+                        label.text = "Object placed";
+                    }
+                        
+                    activeObject = null;
+                }
+            }
+            break;
+            
+            case ActionMode.Reset:
+            {
+                if (activeObject == null)
+                {
+                    activeObject = findClosest ();
+                    if ((activeObject != null) && (activeObject != sceneRoot))
+                    {
+                        // register anchor if it doesn't already exist.
+                        if (!anchorPoints.ContainsKey (activeObject))
+                        {
+                            Anchor a = new Anchor ();
+                            a.anchor = Instantiate (activeObject);
+                            a.sceneElement = activeObject;
+                            anchorPoints[activeObject] = a;
+                        }
+
+                        anchorPoints[activeObject].anchor.SetParent (transform, false);
+                        anchorPoints[activeObject].anchor.localPosition = Vector3.zero;
+                        anchorPoints[activeObject].anchor.localRotation = Quaternion.identity;
+                        if (anchorPoints[activeObject].anchor.transform.Find ("ShapeCube").GetComponent <MeshRenderer> () != null)
+                        {
+                        anchorPoints[activeObject].anchor.transform.Find ("ShapeCube").GetComponent <MeshRenderer> ().material.color = new Color (0.8f, 0.3f, 0.5f, 0.3f);
+                        }
+
+                        label.text = "Place object";
+                    }
+                    else
+                    {
+                        label.text = "No object found";
+                    }
+                }
+                else // make sure release requires a new event
+                {
+                    if (activeObject != null)
+                    {
+                        anchorPoints[activeObject].anchor.SetParent (null);
+                        label.text = "Object placed";
+                        
+                        updateTransformation ();
+                            
+                        label.text = "Local to global mapping updated";
+                        
+                        activeObject = null;
+                    }
+                }
+            }
+            break;
+     
+            case ActionMode.PlacePlane:
+            {
+                GetComponent <ObjectCreator> ().createPlane ();
+            }
+            break;
+            
+            default:
+            break;
+        }
+        
+        // Update the scene layout now that something has changed.
+        if (GetComponent <PersistScene> () != null)
+        {
+            GetComponent <PersistScene> ().persist ();
+        }
+    }
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+    /*            
+        if (activeObject == null)
         {
             // find closest object, and attach.
             // Select all objects in the scene.
@@ -235,7 +361,7 @@ public class ManipulateNext : MonoBehaviour
         }
         
     }
-    
+    */
     private bool buttonDown = false;
     void createControllerEvents ()
     {
