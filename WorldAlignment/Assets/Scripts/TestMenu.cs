@@ -146,7 +146,8 @@ public class TestMenu : MonoBehaviour
     {
         handLeft.transform.position = new Vector3 (-0.2f, 1.3f, 0.5f);
         handLeft.transform.rotation = Quaternion.AngleAxis (0.0f, new Vector3 (0.0f, 1.0f, 0.0f));
-        creator.createPlane (); // invoke create object.
+        manipulate.placePlane (); // create new triangle.
+        manipulate.handleControllerButton (); // click controller.
     }
     
     

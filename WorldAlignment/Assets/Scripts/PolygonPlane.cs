@@ -10,33 +10,21 @@ public class PolygonPlane : MonoBehaviour
   
   private void updateMesh ()
   {
-    Vector3[] vertices = new Vector3[4];
-    Vector2[] uvs = new Vector2[4];
-    int[] triangles = new int[6];
+    Vector3[] vertices = new Vector3[3];
+    Vector2[] uvs = new Vector2[3];
+    int[] triangles = new int[3];
       
-//     origin.position = new Vector3 (-0.3099f, 0.1220f, 0.5417f);
-//     right.position = new Vector3 (0.0349f, -0.0862f, 0.4102f);
-//     forward.position = new Vector3 (-0.3332f, -0.3426f, 0.5946f);
-//     transform.position = new Vector3 (-0.1938f, -0.1087f, 0.4605f);
-//     
-    vertices[0] = origin.position - transform.position;
-    vertices[1] = right.position - transform.position;
-    vertices[2] = (right.position + forward.position - origin.position) - transform.position;
-    vertices[3] = forward.position - transform.position;
-    
-//     Debug.Log ("Mesh " + origin.position.ToString ("F4") + " " + right.position.ToString ("F4") + " " + forward.position.ToString ("F4") + " " + transform.position.ToString ("F4") + " " + vertices[0].ToString ("F4") + " " + vertices[1].ToString ("F4") + " " + vertices[2].ToString ("F4") + " " + vertices[3].ToString ("F4"));
+    vertices[0] = transform.InverseTransformPoint (origin.position);
+    vertices[1] = transform.InverseTransformPoint (right.position);
+    vertices[2] = transform.InverseTransformPoint (forward.position);
     
     uvs[0] = new Vector2 (0, 0);
     uvs[1] = new Vector2 (1, 0);
-    uvs[2] = new Vector2 (1, 1);
-    uvs[3] = new Vector2 (0, 1);
+    uvs[2] = new Vector2 (0, 1);
     
     triangles[0] = 0;
     triangles[1] = 1;
     triangles[2] = 2;
-    triangles[3] = 0;
-    triangles[4] = 2;
-    triangles[5] = 3;
     
     Mesh m = GetComponent <MeshFilter> ().mesh;
     m.Clear ();
@@ -44,7 +32,6 @@ public class PolygonPlane : MonoBehaviour
     m.uv = uvs;
     m.triangles = triangles;
     m.RecalculateNormals();
-//    GetComponent <MeshFilter> ().mesh = m; 
   }
   
   public void setCorners (GameObject o, GameObject f, GameObject r)
@@ -58,8 +45,16 @@ public class PolygonPlane : MonoBehaviour
       updateMesh ();
   }
   
+  public void getCorners (out GameObject o, out GameObject f, out GameObject r)
+  {
+      o = origin.gameObject;
+      f = forward.gameObject;
+      r = right.gameObject;
+  }
+  
   void Update ()
   {
+      // FIXME: only needs to be done, when corner markers send an update event.
       updateMesh ();
   }
 }

@@ -16,18 +16,19 @@ public class ObjectCreator : MonoBehaviour
         return o;
     }
     
-    public void createObject ()
+    public GameObject createObject ()
     {
-        instantiateTemplate (Vector3.zero);
+        return instantiateTemplate (Vector3.zero);
     }
     
-    public void createPlane ()
+    public GameObject createPlane ()
     {
        GameObject o = instantiateTemplate (Vector3.zero);
        GameObject f = instantiateTemplate (new Vector3 (0.0f, 0.0f, 0.1f));
        GameObject r = instantiateTemplate (new Vector3 (0.1f, 0.0f, 0.0f));
        
       GameObject pp = Instantiate (polygonPlaneTemplate, transform.position, transform.rotation);
-       pp.GetComponent <PolygonPlane> ().setCorners (o, f, r);
+      pp.GetComponent <PolygonPlane> ().setCorners (o, f, r);
+      return pp;       
     }
 }

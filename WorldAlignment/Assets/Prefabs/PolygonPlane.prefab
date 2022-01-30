@@ -13,6 +13,7 @@ GameObject:
   - component: {fileID: 176559995886321557}
   - component: {fileID: 3936185302906545444}
   - component: {fileID: 9223066971452091963}
+  - component: {fileID: 2760678863868958932}
   m_Layer: 0
   m_Name: PolygonPlane
   m_TagString: Untagged
@@ -107,5 +108,17 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 3fbbd219aa020ec8391f94f0a4b984c9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+--- !u!114 &2760678863868958932
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8890882542763049072}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6b967eab18091609690324855ef94480, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 

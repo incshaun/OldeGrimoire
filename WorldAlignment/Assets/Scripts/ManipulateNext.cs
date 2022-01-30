@@ -10,7 +10,9 @@ public class ManipulateNext : MonoBehaviour
     
     public TextMeshPro label;
     
-    private enum ActionMode { None, Move, Reset, PlacePlane };
+    public GameObject polygonPlaneTemplate;
+    
+    private enum ActionMode { None, CreatePoint, Move, Reset, PlacePlane, LinkPoints };
     
     private ActionMode action = ActionMode.None;
 
@@ -30,6 +32,11 @@ public class ManipulateNext : MonoBehaviour
     [Tooltip ("Controller input used to trigger selection/deselection")]
     public OVRInput.RawButton button = OVRInput.RawButton.LThumbstickUp;
     
+    public void createPoint ()
+    {
+      GetComponent <ObjectCreator> ().createObject ();
+    }
+    
     public void activateNext ()
     {
         action = ActionMode.Move;
@@ -46,6 +53,15 @@ public class ManipulateNext : MonoBehaviour
     {
         action = ActionMode.PlacePlane;
         label.text = "Click to create plane";        
+    }
+    
+    Transform [] linkElements = new Transform [3];
+    int linkCount = 0;
+    public void linkPoints ()
+    {
+        linkCount = 0;
+        action = ActionMode.LinkPoints;
+        label.text = "Click on points to make plane";        
     }
     
     public void updateTransformation ()
@@ -92,7 +108,7 @@ public class ManipulateNext : MonoBehaviour
         }
     }
     
-    private Transform findClosest ()
+    private Transform findClosestManipulable ()
     {
         // find closest object, and attach.
         // Select all objects in the scene.
@@ -103,7 +119,7 @@ public class ManipulateNext : MonoBehaviour
         foreach (Transform t in obj)
         {
             float distance = Vector3.Distance (transform.position, t.position);
-            if (((bestObj == null) || (distance < bestDistance)) && (t.gameObject.GetComponent <Persistable> () != null))
+            if (((bestObj == null) || (distance < bestDistance)) && (t.gameObject.GetComponent <Manipulable> () != null))
             {
                 bestObj = t;
                 bestDistance = distance;
@@ -122,7 +138,7 @@ public class ManipulateNext : MonoBehaviour
             {
                 if (activeObject == null)
                 {
-                    activeObject = findClosest ();
+                    activeObject = findClosestManipulable ();
                     if ((activeObject != null) && (activeObject != sceneRoot))
                     {
                         activeObject.SetParent (transform, false);
@@ -152,7 +168,7 @@ public class ManipulateNext : MonoBehaviour
             {
                 if (activeObject == null)
                 {
-                    activeObject = findClosest ();
+                    activeObject = findClosestManipulable ();
                     if ((activeObject != null) && (activeObject != sceneRoot))
                     {
                         // register anchor if it doesn't already exist.
@@ -198,7 +214,31 @@ public class ManipulateNext : MonoBehaviour
      
             case ActionMode.PlacePlane:
             {
-                GetComponent <ObjectCreator> ().createPlane ();
+                GameObject plane = GetComponent <ObjectCreator> ().createPlane ();
+                plane.transform.SetParent (sceneRoot);
+            }
+            break;
+            
+            case ActionMode.LinkPoints:
+            {
+                Transform t = findClosestManipulable ();
+                bool found = false;
+                for (int i = 0; i < linkCount; i++)
+                {
+                    found = found | (linkElements[i] == t);
+                }
+                if (!found)
+                {
+                    linkElements[linkCount++] = t;
+                }
+                
+                if (linkCount == 3)
+                {
+                  GameObject plane = Instantiate (polygonPlaneTemplate, Vector3.zero, Quaternion.identity);
+                  plane.GetComponent <PolygonPlane> ().setCorners (linkElements[0].gameObject, linkElements[1].gameObject, linkElements[2].gameObject);
+                  plane.transform.SetParent (sceneRoot);
+                  linkCount = 0;
+                }
             }
             break;
             
