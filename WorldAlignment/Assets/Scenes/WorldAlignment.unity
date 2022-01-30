@@ -698,7 +698,6 @@ MonoBehaviour:
   head: {fileID: 1260876860}
   handLeft: {fileID: 168844625}
   handRight: {fileID: 1558588323}
-  creator: {fileID: 1449773450}
   manipulate: {fileID: 1449773452}
 --- !u!135 &997097182
 SphereCollider:
@@ -963,7 +962,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1449773451}
-  - component: {fileID: 1449773450}
   - component: {fileID: 1449773452}
   - component: {fileID: 1449773453}
   m_Layer: 0
@@ -973,21 +971,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &1449773450
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1449773449}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 621e5fd83bd33951e9a8d2c3bd719e85, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  objectTemplate: {fileID: 857732802454526796, guid: 1965ac1d697269ac18b35f520896c23c, type: 3}
-  sceneRoot: {fileID: 289355353}
-  polygonPlaneTemplate: {fileID: 8890882542763049072, guid: f264b3793d84fc8ff8676ee9026eb3ad, type: 3}
 --- !u!4 &1449773451
 Transform:
   m_ObjectHideFlags: 0
@@ -1015,9 +998,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: eb0db762ed7910a10847f93dbb63c655, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  objectTemplate: {fileID: 857732802454526796, guid: 1965ac1d697269ac18b35f520896c23c, type: 3}
+  polygonPlaneTemplate: {fileID: 8890882542763049072, guid: f264b3793d84fc8ff8676ee9026eb3ad, type: 3}
   sceneRoot: {fileID: 289355353}
   label: {fileID: 1982137114}
-  polygonPlaneTemplate: {fileID: 8890882542763049072, guid: f264b3793d84fc8ff8676ee9026eb3ad, type: 3}
   button: 268435456
 --- !u!114 &1449773453
 MonoBehaviour:

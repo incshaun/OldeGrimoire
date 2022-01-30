@@ -6,11 +6,15 @@ using TMPro;
 
 public class ManipulateNext : MonoBehaviour
 {
+    [Tooltip ("The template for anchor points")]
+    public GameObject objectTemplate;
+    [Tooltip ("The template for polygon planes")]
+    public GameObject polygonPlaneTemplate;
+    [Tooltip ("The root object for the scene (for manipulating global coordinates)")]
     public Transform sceneRoot;
     
+    [Tooltip ("A label to show state of the controls")]    
     public TextMeshPro label;
-    
-    public GameObject polygonPlaneTemplate;
     
     private enum ActionMode { None, CreatePoint, Move, Reset, PlacePlane, LinkPoints };
     
@@ -32,9 +36,16 @@ public class ManipulateNext : MonoBehaviour
     [Tooltip ("Controller input used to trigger selection/deselection")]
     public OVRInput.RawButton button = OVRInput.RawButton.LThumbstickUp;
     
+    private GameObject instantiateTemplate (Vector3 offset)
+    {
+        GameObject o = Instantiate (objectTemplate, transform.position + offset, transform.rotation);
+        o.transform.SetParent (sceneRoot);
+        return o;
+    }
+    
     public void createPoint ()
     {
-      GetComponent <ObjectCreator> ().createObject ();
+      instantiateTemplate (Vector3.zero);
     }
     
     public void activateNext ()
@@ -106,6 +117,16 @@ public class ManipulateNext : MonoBehaviour
             }
             
         }
+    }
+    
+    // Bit of a hack, to provide visual appearance to a anchor. Should really be
+    // separated out to the class of object.
+    private void setColour (Transform p, Color c)
+    {
+      if (p.Find ("ShapeCube").GetComponent <MeshRenderer> () != null)
+      {
+        p.transform.Find ("ShapeCube").GetComponent <MeshRenderer> ().material.color = c;
+      }
     }
     
     private Transform findClosestManipulable ()
@@ -183,10 +204,7 @@ public class ManipulateNext : MonoBehaviour
                         anchorPoints[activeObject].anchor.SetParent (transform, false);
                         anchorPoints[activeObject].anchor.localPosition = Vector3.zero;
                         anchorPoints[activeObject].anchor.localRotation = Quaternion.identity;
-                        if (anchorPoints[activeObject].anchor.transform.Find ("ShapeCube").GetComponent <MeshRenderer> () != null)
-                        {
-                        anchorPoints[activeObject].anchor.transform.Find ("ShapeCube").GetComponent <MeshRenderer> ().material.color = new Color (0.8f, 0.3f, 0.5f, 0.3f);
-                        }
+                        setColour (anchorPoints[activeObject].anchor, new Color (0.8f, 0.3f, 0.5f, 0.3f));
 
                         label.text = "Place object";
                     }
@@ -214,7 +232,12 @@ public class ManipulateNext : MonoBehaviour
      
             case ActionMode.PlacePlane:
             {
-                GameObject plane = GetComponent <ObjectCreator> ().createPlane ();
+                GameObject o = instantiateTemplate (Vector3.zero);
+                GameObject f = instantiateTemplate (new Vector3 (0.0f, 0.0f, 0.1f));
+                GameObject r = instantiateTemplate (new Vector3 (0.1f, 0.0f, 0.0f));
+       
+                GameObject plane = Instantiate (polygonPlaneTemplate, transform.position, transform.rotation);
+                plane.GetComponent <PolygonPlane> ().setCorners (o, f, r);
                 plane.transform.SetParent (sceneRoot);
             }
             break;
@@ -229,6 +252,7 @@ public class ManipulateNext : MonoBehaviour
                 }
                 if (!found)
                 {
+                    setColour (t, new Color (0.2f, 0.7f, 0.2f, 0.3f));                        
                     linkElements[linkCount++] = t;
                 }
                 
@@ -237,6 +261,9 @@ public class ManipulateNext : MonoBehaviour
                   GameObject plane = Instantiate (polygonPlaneTemplate, Vector3.zero, Quaternion.identity);
                   plane.GetComponent <PolygonPlane> ().setCorners (linkElements[0].gameObject, linkElements[1].gameObject, linkElements[2].gameObject);
                   plane.transform.SetParent (sceneRoot);
+                  setColour (linkElements[0], new Color (1.0f, 1.0f, 1.0f, 0.5f));                        
+                  setColour (linkElements[1], new Color (1.0f, 1.0f, 1.0f, 0.5f));                        
+                  setColour (linkElements[2], new Color (1.0f, 1.0f, 1.0f, 0.5f));                        
                   linkCount = 0;
                 }
             }

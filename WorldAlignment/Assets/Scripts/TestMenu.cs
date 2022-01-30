@@ -12,7 +12,6 @@ public class TestMenu : MonoBehaviour
     public GameObject head;
     public GameObject handLeft;
     public GameObject handRight;
-    public ObjectCreator creator;
     public ManipulateNext manipulate;
     
     public delegate void StepAction ();
@@ -103,7 +102,8 @@ public class TestMenu : MonoBehaviour
     {
         handLeft.transform.position = new Vector3 (-0.2f, 1.3f, 0.5f);
         handLeft.transform.rotation = Quaternion.AngleAxis (0.0f, new Vector3 (0.0f, 1.0f, 0.0f));
-        creator.createObject (); // invoke create object.
+        manipulate.createPoint (); // invoke create object.
+        manipulate.handleControllerButton (); // click controller.
     }
     
     void placeSecond ()
@@ -112,7 +112,8 @@ public class TestMenu : MonoBehaviour
         handLeft.transform.position = new Vector3 (0.4f, 1.3f, 0.5f);
         handLeft.transform.rotation = Quaternion.AngleAxis (0.0f, new Vector3 (0.0f, 1.0f, 0.0f));
 //         handLeft.transform.rotation = Quaternion.AngleAxis (33.0f, new Vector3 (0.5f, 0.6f, 0.7f));
-        creator.createObject (); // invoke create object.
+        manipulate.createPoint (); // invoke create object.
+        manipulate.handleControllerButton (); // click controller.
     }
 
     void resetCoordinatesGrab ()
