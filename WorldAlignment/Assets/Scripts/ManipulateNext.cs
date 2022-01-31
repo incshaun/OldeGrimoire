@@ -14,7 +14,7 @@ public class ManipulateNext : MonoBehaviour
     public Transform sceneRoot;
     
     [Tooltip ("A label to show state of the controls")]    
-    public TextMeshPro label;
+    public TMP_Text label;
     
     private enum ActionMode { None, CreatePoint, Move, Reset, PlacePlane, LinkPoints };
     
@@ -77,7 +77,7 @@ public class ManipulateNext : MonoBehaviour
     
     public void updateTransformation ()
     {
-        if (activeObject != null)
+        if (activeObject != null && (anchorPoints.Keys.Count >= 3))
         {
             Vector3 [] local = new Vector3 [anchorPoints.Keys.Count];
             Vector3 [] global = new Vector3 [anchorPoints.Keys.Count];
@@ -429,16 +429,19 @@ public class ManipulateNext : MonoBehaviour
         
     }
     */
+    
+    
+    
     private bool buttonDown = false;
     void createControllerEvents ()
     {
         // Make up for apprent lack of events in OVRInput, by polling button.
-        if (OVRInput.Get (button) && !buttonDown)
+        if ((OVRInput.Get (button)) && !buttonDown)
         {
             buttonDown = true;
             handleControllerButton (); // invoke event.
         }              
-        if (!OVRInput.Get (button) && buttonDown)
+        if ((!OVRInput.Get (button)) && buttonDown)
         {
             buttonDown = false; // debounce.
         }
