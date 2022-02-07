@@ -27,8 +27,7 @@ public class PhaseUnwrap: MonoBehaviour
         structuredLightMaterial.SetFloat ("_Phase", 0.0f);
         
         t = new ThreePhase ();
-        t.loadImages (phaseImages[0], phaseImages[1], phaseImages[2]);
-        t.generate (scanObject);
+        t.unwrapPhase (phaseImages[0], phaseImages[1], phaseImages[2]);
     }
    
     bool startReg = false;
@@ -45,7 +44,19 @@ public class PhaseUnwrap: MonoBehaviour
         new Vector3 (0.6f, -1.0f, 0.5f),         
         new Vector3 (0.0f, -1.0f, 0.0f), 
     };
-    Vector2 [] mapLoc;
+//    Vector2 [] mapLoc;
+    
+    // Measured data, for testing during development.
+    Vector2 [] mapLoc =
+    {
+        new Vector2 (0.3652f, 0.3711f),
+        new Vector2 (0.4277f, 0.8008f),
+        new Vector2 (0.7988f, 0.8789f),
+        new Vector2 (0.3496f, 0.1836f),
+        new Vector2 (0.5918f, 0.3438f),
+        new Vector2 (0.5059f, 0.3125f)
+    };
+    
      GameObject ro = null;
     public GameObject regTemplate;
      
@@ -61,8 +72,9 @@ public class PhaseUnwrap: MonoBehaviour
       if (Input.GetKeyDown (KeyCode.LeftAlt))
       {
           regCount = 0;
-          mapLoc = new Vector2 [regLoc.Length];
-          startReg = true;
+  //        mapLoc = new Vector2 [regLoc.Length];
+  //        startReg = true;
+          t.findMatrix (regLoc, mapLoc, scanObject);
       }
       
       if (startReg)
@@ -79,9 +91,8 @@ public class PhaseUnwrap: MonoBehaviour
           {
           Camera.main.targetTexture = phaseImages[0];
               Vector3 p = Input.mousePosition;
-              Debug.Log ("Mouse at " + p.x / Screen.width + " " + p.y / Screen.height);
-          Debug.Log ("Screen B " + Screen.width);
               mapLoc[regCount] = new Vector2 (p.x / Screen.width, p.y / Screen.height);
+Debug.Log ("Point: " + regCount + " " + mapLoc[regCount].ToString ("F4"));              
         Camera.main.targetTexture = null;
               
               Destroy (ro);
