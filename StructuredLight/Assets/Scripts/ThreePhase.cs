@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using UnityEngine;
 using MathNet.Numerics.LinearAlgebra.Single;
 
@@ -163,6 +164,7 @@ Vector pp = (Vector) M.QR().Solve(bb);
     
     int inputWidth, inputHeight;
     float[,] phase, distance, depth;
+    float[,] unwrappedphase;
     bool[, ] mask, process;
     Color[,] colors;
     int[, ] names;
@@ -193,7 +195,10 @@ Vector pp = (Vector) M.QR().Solve(bb);
     {
         inputWidth = phase1Image.width;
         inputHeight = phase1Image.height;
+//         inputWidth = 8;
+//         inputHeight = 8;
         phase = new float[inputHeight, inputWidth];
+        unwrappedphase = new float[inputHeight, inputWidth];
         distance = new float[inputHeight, inputWidth];
         depth = new float[inputHeight, inputWidth];
         mask = new bool[inputHeight, inputWidth];
@@ -201,7 +206,11 @@ Vector pp = (Vector) M.QR().Solve(bb);
         colors = new Color[inputHeight, inputWidth];
         names = new int[inputHeight, inputWidth];
             phaseWrap();
-            phaseUnwrap();
+            exportPhase (phase, "Phase");
+//             phaseUnwrap();
+            unwrap_phase ();
+            exportPhase (unwrappedphase, "UnwrappedPhase");
+            phase=unwrappedphase;
             makeDepth();
 //         makeMesh (renderDetail, scanObject);
         
@@ -548,6 +557,8 @@ Vector pp = (Vector) M.QR().Solve(bb);
                 // it can be sped up with a look up table, which has the benefit
                 // of allowing for simultaneous gamma correction.
                 phase[y, x] = Mathf.Atan2(sqrt3 * (phase1 - phase3), 2 * phase2 - phase1 - phase3) / (2.0f * Mathf.PI);
+                phase[y, x] = Mathf.Atan2(sqrt3 * (phase1 - phase3), 2 * phase2 - phase1 - phase3) + Mathf.PI;
+//                 phase[y, x] += 0.5f;
                 
                 // build color based on the lightest channels from all three images
 //                 colors[y, x] = blendColor(blendColor(color1, color2, LIGHTEST), color3, LIGHTEST);
@@ -566,6 +577,21 @@ Vector pp = (Vector) M.QR().Solve(bb);
                 }
             }
         }
+    }
+    
+    void exportPhase (float [,] phase, string fn)
+    {
+        Texture2D copyTexture = new Texture2D(inputWidth, inputHeight);
+        for (int y = 0; y < inputHeight; y++) {
+            for (int x = 0; x < inputWidth; x++) {     
+                float p = phase[y, x] + 0.5f;
+                copyTexture.SetPixel (x, y, new Color (p, p, p));
+            }
+        }
+        copyTexture.Apply();
+        byte[] bytes = copyTexture.EncodeToPNG();
+        var dirPath = Application.dataPath;
+        File.WriteAllBytes(dirPath + "/" + fn + ".png", bytes);
     }
     
     // https://github.com/processing/processing/blob/a6e0e227a948e7e2dc042c04504d6f5b8cf0c1a6/core/src/processing/core/PImage.java
@@ -765,6 +791,414 @@ Vector pp = (Vector) M.QR().Solve(bb);
 //         ply.flush();
 //         ply.close();
     }
+
+    float gamma (float x)
+    {
+         return Mathf.Sign(x) * (Mathf.Abs(x) % Mathf.PI);
+//         return x;
+//         return Mathf.Sign(x) * (Mathf.Abs(x) % 0.5f);
+    }
+
+    float [,] get_reliability (float [,] img)
+    {
+        float [,] rel = new float [inputHeight, inputWidth];
+        
+        for(int y = 0; y < inputHeight; y ++) {
+            for(int x = 0; x < inputWidth; x ++) {
+                float img_im1_jm1 = ((x > 0) && (y > 0)) ? img[y - 1, x - 1] : 0.0f;
+                float img_i_jm1   = (y > 0) ? img[y - 1, x] : 0.0f;
+                float img_ip1_jm1 = ((x < inputWidth - 1) && (y > 0)) ? img[y - 1, x + 1] : 0.0f;
+                float img_im1_j   = (x > 0) ? img[y, x - 1] : 0.0f;
+                float img_i_j     = img[y, x];
+                float img_ip1_j   = (x < inputWidth - 1) ? img[y, x + 1] : 0.0f;
+                float img_im1_jp1 = ((x > 0) && (y < inputHeight - 1)) ? img[y + 1, x - 1] : 0.0f;
+                float img_i_jp1   = (y < inputHeight - 1) ? img[y + 1, x] : 0.0f;
+                float img_ip1_jp1 = ((x < inputWidth - 1) && (y < inputHeight - 1)) ? img[y + 1, x + 1] : 0.0f;
+                float H  = gamma (img_im1_j  - img_i_j) - gamma(img_i_j - img_ip1_j  );
+                float V  = gamma(img_i_jm1   - img_i_j) - gamma(img_i_j - img_i_jp1  );
+                float D1 = gamma(img_im1_jm1 - img_i_j) - gamma(img_i_j - img_ip1_jp1);
+                float D2 = gamma(img_im1_jp1 - img_i_j) - gamma(img_i_j - img_ip1_jm1);
+                
+                float D = Mathf.Sqrt (H * H + V * V + D1 * D1 + D2 * D2);
+                
+                if (D != 0.0f)
+                {
+                  rel[y, x] = 1.0f / D;
+//                   rel[y, x] = 0.001f * 1.0f / D;
+                  
+                }
+                else
+                {
+                    rel[y, x] = 0.0f;
+                }
+                
+                // Consistency with matlab version. May not need.
+                if ((x == 0) || (y == 0) || (x == inputWidth - 1) || (y == inputHeight - 1))
+                {
+                    rel[y,x] = 0.0f;
+                }
+            }
+        }
+        return rel;
+    }
+
+    void unwrap_phase ()
+    {
+      int Nx = inputWidth;
+      int Ny = inputHeight;
+      
+//       Debug.Log ("Phase ");
+//       phase = new float [,] 
+//       { 
+//           {2.0944f, 2.1437f, 2.2176f, 2.3162f, 2.4394f, 2.5872f, 2.7597f, 2.9568f},
+//           {2.0698f, 2.1437f, 2.2176f, 2.3162f, 2.4147f, 2.5626f, 2.7104f, 2.9075f},
+//           {2.0451f, 2.1190f, 2.1930f, 2.2915f, 2.3901f, 2.5379f, 2.6858f, 2.8582f},
+//           {2.0205f, 2.1190f, 2.1930f, 2.2669f, 2.3901f, 2.5133f, 2.6611f, 2.8336f},
+//           {1.9958f, 2.0944f, 2.1930f, 2.2669f, 2.3654f, 2.4886f, 2.6365f, 2.8090f},
+//           {1.9712f, 2.0698f, 2.1683f, 2.2669f, 2.3408f, 2.4640f, 2.6118f, 2.7843f},
+//           {1.9466f, 2.0451f, 2.1683f, 2.2422f, 2.3408f, 2.4394f, 2.5872f, 2.7350f},
+//           {1.9219f, 2.0205f, 2.1437f, 2.2422f, 2.3162f, 2.4394f, 2.5626f, 2.7104f}
+//           
+//       };
+      
+//       string s = "";
+//       for(int y = 0; y < inputHeight; y ++) {
+//           for(int x = 0; x < inputWidth; x ++) {
+//               s += phase[y,x].ToString ("F4") + " ";
+//           }
+//           s += "\n";
+//       }
+//       Debug.Log ("Phase " + s);
+      
+      float [,] reliability = get_reliability(phase);
+      
+//       s = "";
+//       for(int y = 0; y < inputHeight; y ++) {
+//           for(int x = 0; x < inputWidth; x ++) {
+//               s += reliability[y,x].ToString ("F4") + " ";
+//           }
+//           s += "\n";
+//       }
+//       Debug.Log ("Reliability " + s);
+
+      float [,] h_edges = new float [inputHeight, inputWidth];
+      float [,] v_edges = new float [inputHeight, inputWidth];
+      for(int y = 0; y < inputHeight; y ++) {
+          for(int x = 0; x < inputWidth; x ++) {
+              unwrappedphase[y, x] = phase[y, x];
+              
+              h_edges[y, x] = (x < inputWidth - 1) ? reliability[y, x] + reliability[y, x + 1] : float.NaN;
+              v_edges[y, x] = (y < inputHeight - 1) ? reliability[y, x] + reliability[y + 1, x] : float.NaN;
+          }
+      }
+
+      List <(float, int)> edges = new List <(float, int)> ();
+          for(int x = 0; x < inputWidth; x ++) {
+      for(int y = 0; y < inputHeight; y ++) {
+              edges.Add ((h_edges[y, x], edges.Count));
+          }
+      }
+          for(int x = 0; x < inputWidth; x ++) {
+      for(int y = 0; y < inputHeight; y ++) {
+              edges.Add ((v_edges[y, x], edges.Count));
+          }
+      }
+
+      int edge_bound_idx = Ny * Nx;
+      edges.Sort ((a, b) => b.Item1.CompareTo (a.Item1));
+
+//       s="";
+//       for(int y = 0; y < inputHeight; y ++) {
+//           for(int x = 0; x < inputWidth; x ++) {
+//               s += h_edges[y,x].ToString ("F4") + " ";
+//           }
+//           s += "\n";
+//       }
+//       Debug.Log ("H edges: " + s);
+//       s="";
+//       for(int y = 0; y < inputHeight; y ++) {
+//           for(int x = 0; x < inputWidth; x ++) {
+//               s += v_edges[y,x].ToString ("F4") + " ";
+//           }
+//           s += "\n";
+//       }
+//       Debug.Log ("V edges: " + s);
+// 
+//       s="";
+//       for (int i = 0; i < edges.Count; i++)
+//       {
+//           s += edges[i].Item1 + " - " + edges[i].Item2 + "      ";
+//       }
+//       Debug.Log ("Sort edges: " + s);
+      
+      int [] idxs1 = new int [edges.Count];
+      int [] idxs2 = new int [edges.Count];
+      for (int i = 0; i < edges.Count; i++)
+      {
+//           idxs1[i] = (edges[i].Item2 % inputWidth < inputWidth - 1) ? ((edges[i].Item2 + 1 + edge_bound_idx) % edge_bound_idx) : -1;
+          idxs1[i] = edges[i].Item2 % edge_bound_idx;
+          idxs2[i] = idxs1[i] + 1 + (edges[i].Item2 < edge_bound_idx ? Ny - 1 : 0);
+//           Debug.Log ("ID " + i + " " + idxs2[i] + " " + (idxs2[i] - edges[i].Item2) + " " + edges[i].Item2);
+//     idxs2 = idxs1 + 1 + (Ny - 1) .* (edge_sort_idx <= edge_bound_idx);
+      }
+//     idxs1 = mod(edge_sort_idx - 1, edge_bound_idx) + 1;
+//     idxs2 = idxs1 + 1 + (Ny - 1) .* (edge_sort_idx <= edge_bound_idx);
+      
+      int [] group = new int [Ny * Nx];
+      bool [] is_grouped = new bool [Ny * Nx];
+      List <int> [] group_members = new List <int> [Ny * Nx];
+      int [] num_members_group = new int [Ny * Nx];
+      for (int i = 0; i < Ny * Nx; i++)
+      {
+          group[i] = i;
+          is_grouped[i] = false;
+          group_members[i] = new List <int> ();
+          group_members[i].Add (i);
+          num_members_group[i] = 1;
+      }
+
+      for (int i = 0; i < edges.Count; i++)
+      {
+          int idx1 = idxs1[i];
+          int idx2 = idxs2[i];
+          
+          if ((idx1 != -1) && (idx2 != -1) && (idx2 < edge_bound_idx) && (!float.IsNaN (edges[idx1].Item1)) && (!float.IsNaN (edges[idx2].Item1)))
+          {
+//               Debug.Log (idx1 + " " + idx2);
+            if (!(group[idx1] == group[idx2]))
+            {
+                bool all_grouped = false;
+                if (is_grouped[idx1])
+                {
+                    if (!is_grouped[idx2])
+                    {
+                        int idxt = idx1;
+                        idx1 = idx2;
+                        idx2 = idxt;
+                    }
+                    else if (num_members_group[group[idx1]] > num_members_group[group[idx2]])
+                    {
+                        int idxt = idx1;
+                        idx1 = idx2;
+                        idx2 = idxt;
+                        all_grouped = true;
+                    }
+                    else
+                    {
+                        all_grouped = true;
+                    }
+                }
+                
+                // At this point, either all grouped, or idx1 is the not grouped.
+                float dval = Mathf.Floor((unwrappedphase[idx2 % inputHeight, idx2 / inputHeight] - unwrappedphase[idx1 % inputHeight, idx1 / inputHeight] + Mathf.PI/* + 0.5f*/) / (2.0f*Mathf.PI)) * (2.0f*Mathf.PI);
+                
+                int g1 = group[idx1];
+                int g2 = group[idx2];
+                List <int> pix_idxs;
+                if (all_grouped)
+                {
+                    pix_idxs = group_members[g1];
+                }
+                else
+                {
+                    pix_idxs = new List <int> ();
+                    pix_idxs.Add (idx1);
+                }
+
+                if (dval != 0.0f)
+                {
+                    for (int j = 0; j < pix_idxs.Count; j++)
+                    {
+                    unwrappedphase[pix_idxs[j] % inputHeight, pix_idxs[j] / inputHeight] += dval;
+//                     unwrappedphase[pix_idxs[j] % inputHeight, pix_idxs[j] / inputHeight] = -99.0f;
+                    Debug.Log ("Setting " + pix_idxs[j] + " " + dval + "  - " + j + " of " + pix_idxs.Count + " " + group[pix_idxs[j]]);
+                    }
+                }
+
+                group_members[g2].AddRange (pix_idxs);
+                for (int j = 0; j < pix_idxs.Count; j++)
+                {
+                    group[pix_idxs[j]] = g2;
+                }
+                num_members_group[g2] += pix_idxs.Count;
+                is_grouped[idx1] = true;
+                is_grouped[idx2] = true;
+                Debug.Log ("Group: " + g2 + " (" + g1 + ") " + num_members_group[g2] + " "+ pix_idxs.Count + " " + idx1 + " " + idx2 + "  -- " + num_members_group[g1]);
+            }
+          }
+      }
+
+//       s="";
+//       for(int y = 0; y < inputHeight; y ++) {
+//           for(int x = 0; x < inputWidth; x ++) {
+//               s += unwrappedphase[y,x].ToString ("F4") + " ";
+//           }
+//           s += "\n";
+//       }
+//       Debug.Log ("Unwrapped: " + s);
+      
+      for(int y = 0; y < inputHeight; y ++) {
+          for(int x = 0; x < inputWidth; x ++) {
+              unwrappedphase[y, x] = 0.025f * unwrappedphase[y, x] + 0.2f;
+//               unwrappedphase[y, x] = 0.001f * reliability[y, x];
+          }
+      }
+            
+    }
     
+// %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+// % Fast unwrapping 2D phase image using the algorithm given in:                 %
+// %     M. A. Herráez, D. R. Burton, M. J. Lalor, and M. A. Gdeisat,             %
+// %     "Fast two-dimensional phase-unwrapping algorithm based on sorting by     %
+// %     reliability following a noncontinuous path", Applied Optics, Vol. 41,    %
+// %     Issue 35, pp. 7437-7444 (2002).                                          %
+// %                                                                              %
+// % If using this code for publication, please kindly cite the following:        %
+// % * M. A. Herraez, D. R. Burton, M. J. Lalor, and M. A. Gdeisat, "Fast         %
+// %   two-dimensional phase-unwrapping algorithm based on sorting by reliability %
+// %   following a noncontinuous path", Applied Optics, Vol. 41, Issue 35,        %
+// %   pp. 7437-7444 (2002).                                                      %
+// % * M. F. Kasim, "Fast 2D phase unwrapping implementation in MATLAB",          %
+// %   https://github.com/mfkasim91/unwrap_phase/ (2017).                         %
+// %                                                                              %
+// % Input:                                                                       %
+// % * img: The wrapped phase image either from -pi to pi or from 0 to 2*pi.      %
+// %        If there are unwanted regions, it should be filled with NaNs.         %
+// %                                                                              %
+// % Output:                                                                      %
+// % * res_img: The unwrapped phase with arbitrary offset.                        %
+// %                                                                              %
+// % Author:                                                                      %
+// %     Muhammad F. Kasim, University of Oxford (2017)                           %
+// %     Email: firman.kasim@gmail.com                                            %
+// %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+// 
+// function res_img = unwrap_phase(img)
+//     [Ny, Nx] = size(img);
+// 
+//     % get the reliability
+//     reliability = get_reliability(img); % (Ny,Nx)
+// 
+//     % get the edges
+//     [h_edges, v_edges] = get_edges(reliability); % (Ny,Nx) and (Ny,Nx)
+// 
+//     % combine all edges and sort it
+//     edges = [h_edges(:); v_edges(:)];
+//     edge_bound_idx = Ny * Nx; % if i <= edge_bound_idx, it is h_edges
+//     [~, edge_sort_idx] = sort(edges, 'descend');
+// 
+//     % get the indices of pixels adjacent to the edges
+//     idxs1 = mod(edge_sort_idx - 1, edge_bound_idx) + 1;
+//     idxs2 = idxs1 + 1 + (Ny - 1) .* (edge_sort_idx <= edge_bound_idx);
+// 
+//     % label the group
+//     group = reshape([1:numel(img)], Ny*Nx, 1);
+//     is_grouped = zeros(Ny*Nx,1);
+//     group_members = cell(Ny*Nx,1);
+//     for i = 1:size(is_grouped,1)
+//         group_members{i} = i;
+//     end
+//     num_members_group = ones(Ny*Nx,1);
+// 
+//     % propagate the unwrapping
+//     res_img = img;
+//     num_nan = sum(isnan(edges)); % count how many nan-s and skip them
+//     for i = num_nan+1 : length(edge_sort_idx)
+//         % get the indices of the adjacent pixels
+//         idx1 = idxs1(i);
+//         idx2 = idxs2(i);
+// 
+//         % skip if they belong to the same group
+//         if (group(idx1) == group(idx2)) continue; end
+// 
+//         % idx1 should be ungrouped (swap if idx2 ungrouped and idx1 grouped)
+//         % otherwise, activate the flag all_grouped.
+//         % The group in idx1 must be smaller than in idx2. If initially
+//         % group(idx1) is larger than group(idx2), then swap it.
+//         all_grouped = 0;
+//         if is_grouped(idx1)
+//             if ~is_grouped(idx2)
+//                 idxt = idx1;
+//                 idx1 = idx2;
+//                 idx2 = idxt;
+//             elseif num_members_group(group(idx1)) > num_members_group(group(idx2))
+//                 idxt = idx1;
+//                 idx1 = idx2;
+//                 idx2 = idxt;
+//                 all_grouped = 1;
+//             else
+//                 all_grouped = 1;
+//             end
+//         end
+// 
+//         % calculate how much we should add to the idx1 and group
+//         dval = floor((res_img(idx2) - res_img(idx1) + pi) / (2*pi)) * 2*pi;
+// 
+//         % which pixel should be changed
+//         g1 = group(idx1);
+//         g2 = group(idx2);
+//         if all_grouped
+//             pix_idxs = group_members{g1};
+//         else
+//             pix_idxs = idx1;
+//         end
+// 
+//         % add the pixel value
+//         if dval ~= 0
+//             res_img(pix_idxs) = res_img(pix_idxs) + dval;
+//         end
+// 
+//         % change the group
+//         len_g1 = num_members_group(g1);
+//         len_g2 = num_members_group(g2);
+//         group_members{g2}(len_g2+1:len_g2+len_g1) = pix_idxs;
+//         group(pix_idxs) = g2; % assign the pixels to the new group
+//         num_members_group(g2) = num_members_group(g2) + len_g1;
+// 
+//         % mark idx1 and idx2 as already being grouped
+//         is_grouped(idx1) = 1;
+//         is_grouped(idx2) = 1;
+//     end
+// end
+// 
+// function rel = get_reliability(img)
+//     rel = zeros(size(img));
+// 
+//     % get the shifted images (N-2, N-2)
+//     img_im1_jm1 = img(1:end-2, 1:end-2);
+//     img_i_jm1   = img(2:end-1, 1:end-2);
+//     img_ip1_jm1 = img(3:end  , 1:end-2);
+//     img_im1_j   = img(1:end-2, 2:end-1);
+//     img_i_j     = img(2:end-1, 2:end-1);
+//     img_ip1_j   = img(3:end  , 2:end-1);
+//     img_im1_jp1 = img(1:end-2, 3:end  );
+//     img_i_jp1   = img(2:end-1, 3:end  );
+//     img_ip1_jp1 = img(3:end  , 3:end  );
+// 
+//     % calculate the difference
+//     gamma = @(x) sign(x) .* mod(abs(x), pi);
+//     H  = gamma(img_im1_j   - img_i_j) - gamma(img_i_j - img_ip1_j  );
+//     V  = gamma(img_i_jm1   - img_i_j) - gamma(img_i_j - img_i_jp1  );
+//     D1 = gamma(img_im1_jm1 - img_i_j) - gamma(img_i_j - img_ip1_jp1);
+//     D2 = gamma(img_im1_jp1 - img_i_j) - gamma(img_i_j - img_ip1_jm1);
+// 
+//     % calculate the second derivative
+//     D = sqrt(H.*H + V.*V + D1.*D1 + D2.*D2);
+// 
+//     % assign the reliability as 1 / D
+//     rel(2:end-1, 2:end-1) = 1./D;
+// 
+//     % assign all nan's in rel with non-nan in img to 0
+//     % also assign the nan's in img to nan
+//     rel(isnan(rel) & ~isnan(img)) = 0;
+//     rel(isnan(img)) = nan;
+// end
+// 
+// function [h_edges, v_edges] = get_edges(rel)
+//     [Ny, Nx] = size(rel);
+//     h_edges = [rel(1:end, 2:end) + rel(1:end, 1:end-1), nan(Ny, 1)];
+//     v_edges = [rel(2:end, 1:end) + rel(1:end-1, 1:end); nan(1, Nx)];
+// end
+
     
 }
