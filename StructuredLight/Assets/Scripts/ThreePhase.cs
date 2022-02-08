@@ -64,77 +64,206 @@ public class ThreePhase
         
         // zz[3][2] = 7;
         
-        Matrix M = new DenseMatrix (xx.Length * 4, 16);
-        Vector bb = new DenseVector (xx.Length * 4);
+//         // Test system
+// {
+//     Matrix Asoln =  new DenseMatrix (2, 2);
+//     Asoln[0, 0] = 3.3f;
+//     Asoln[0, 1] = 1.2f;
+//     Asoln[1, 0] = 0.4f;
+//     Asoln[1, 1] = 2.1f;
+//     float [] ys = new float [] { 2.5f, 1.7f, 8.4f, 4.1f, 7.2f, 1.8f};
+//         Vector [] xw = new Vector[ys.Length];
+//         for (int i = 0; i < ys.Length; i++)
+//         {
+//             Vector yy = new DenseVector (new float [] { ys[i], 1 });
+//             xw[i] = (Vector) Asoln.Multiply (yy);
+//             Debug.Log ("Asoln : " + Asoln + " " + yy + " " + xw[i] + " " + (xw[i][0] / xw[i][1]));
+//         }
+// 
+//     Matrix MM = new DenseMatrix (ys.Length, 4);
+//     
+//         for (int i = 0; i < ys.Length; i++)
+//         {
+//             MM[i, 0] = -ys[i];
+//             MM[i, 1] = -1.0f;
+//             MM[i, 2] = (xw[i][0] / xw[i][1]) * ys[i];
+//             MM[i, 3] = (xw[i][0] / xw[i][1]);
+//         }
+//         Debug.Log ("MM " + MM);
+//         
+//             Vector abcd = new DenseVector (new float [] { Asoln[0, 0], Asoln[0, 1], Asoln[1, 0], Asoln[1, 1] });
+//             Vector r = (Vector) MM.Multiply (abcd);
+//             Debug.Log ("Verify : " + r + " " + abcd);
+//  
+//             MathNet.Numerics.LinearAlgebra.Factorization.Svd<float> svdResult = MM.Svd ();
+//     Matrix U = (Matrix) svdResult.U;
+//     Vector S = (Vector) svdResult.S;
+//     Matrix Vt = (Matrix) svdResult.VT;
+//     Debug.Log ("SVD " + U + " " + S + " " + Vt);
+// 
+//     Vector SS = (Vector) Vt.Row (3);
+//     Debug.Log ("Other soln " + SS);
+//             Vector rr = (Vector) MM.Multiply (SS);
+//             Debug.Log ("Verify2 : " + rr + " " + SS);
+//     Matrix A2soln =  new DenseMatrix (2, 2);
+//     A2soln[0, 0] = SS[0];
+//     A2soln[0, 1] = SS[1];
+//     A2soln[1, 0] = SS[2];
+//     A2soln[1, 1] = SS[3];
+//         for (int i = 0; i < ys.Length; i++)
+//         {
+//             Vector yy = new DenseVector (new float [] { ys[i], 1 });
+//             xw[i] = (Vector) A2soln.Multiply (yy);
+//             Debug.Log ("Asoln2 : " + A2soln + " " + yy + " " + xw[i] + " " + (xw[i][0] / xw[i][1]));
+//         }
+// }
+        
+        
+        // M transforms from p to q. It must transform points in phase space, to 3D coordinates.
+        // p = { map[i].x, map[i].y, v, 1 }
+        // q = { xx[i].x, xx[i].y, xx[i].z }
+        
+        Matrix M = new DenseMatrix (xx.Length * 3, 16);
         for (int i = 0; i < xx.Length; i++)
         {
-            M[i * 4 + 0, 0] = zz[i][0];
-            M[i * 4 + 0, 1] = zz[i][1];
-            M[i * 4 + 0, 2] = zz[i][2];
-            M[i * 4 + 0, 3] = zz[i][3];
+            float v = phase[(int) (map[i].y * phaseHeight), (int) (map[i].x * phaseWidth)];
+            M[i * 3 + 0, 0] = -map[i].x;
+            M[i * 3 + 0, 1] = -map[i].y;
+            M[i * 3 + 0, 2] = -v;
+            M[i * 3 + 0, 3] = -1.0f;
+            M[i * 3 + 0, 12] = xx[i].x * map[i].x;
+            M[i * 3 + 0, 13] = xx[i].x * map[i].y;
+            M[i * 3 + 0, 14] = xx[i].x * v;
+            M[i * 3 + 0, 15] = xx[i].x;
+
+            M[i * 3 + 1, 4] = -map[i].x;
+            M[i * 3 + 1, 5] = -map[i].y;
+            M[i * 3 + 1, 6] = -v;
+            M[i * 3 + 1, 7] = -1.0f;
+            M[i * 3 + 1, 12] = xx[i].y * map[i].x;
+            M[i * 3 + 1, 13] = xx[i].y * map[i].y;
+            M[i * 3 + 1, 14] = xx[i].y * v;
+            M[i * 3 + 1, 15] = xx[i].y;
             
-            M[i * 4 + 1, 4] = zz[i][0];
-            M[i * 4 + 1, 5] = zz[i][1];
-            M[i * 4 + 1, 6] = zz[i][2];
-            M[i * 4 + 1, 7] = zz[i][3];
+            M[i * 3 + 2, 8] = -map[i].x;
+            M[i * 3 + 2, 9] = -map[i].y;
+            M[i * 3 + 2, 10] = -v;
+            M[i * 3 + 2, 11] = -1.0f;
+            M[i * 3 + 2, 12] = xx[i].z * map[i].x;
+            M[i * 3 + 2, 13] = xx[i].z * map[i].y;
+            M[i * 3 + 2, 14] = xx[i].z * v;
+            M[i * 3 + 2, 15] = xx[i].z;
             
-            M[i * 4 + 2, 8] = zz[i][0];
-            M[i * 4 + 2, 9] = zz[i][1];
-            M[i * 4 + 2, 10] = zz[i][2];
-            M[i * 4 + 2, 11] = zz[i][3];
-            
-            M[i * 4 + 3, 12] = zz[i][0];
-            M[i * 4 + 3, 13] = zz[i][1];
-            M[i * 4 + 3, 14] = zz[i][2];
-            M[i * 4 + 3, 15] = zz[i][3];
-            
-            bb[i * 4 + 0] = xx[i].x;
-            bb[i * 4 + 1] = xx[i].y;
-            bb[i * 4 + 2] = xx[i].z;
-            bb[i * 4 + 3] = 1.0f;
-            
-            //             M[i * 4 + 0, 0] = xx[i][0];
-            //             M[i * 4 + 0, 1] = xx[i][1];
-            //             M[i * 4 + 0, 2] = xx[i][2];
-            //             M[i * 4 + 0, 3] = 1.0f;
-            //             
-            //             M[i * 4 + 1, 4] = xx[i][0];
-            //             M[i * 4 + 1, 5] = xx[i][1];
-            //             M[i * 4 + 1, 6] = xx[i][2];
-            //             M[i * 4 + 1, 7] = 1.0f;
-            // 
-            //             M[i * 4 + 2, 8] = xx[i][0];
-            //             M[i * 4 + 2, 9] = xx[i][1];
-            //             M[i * 4 + 2, 10] = xx[i][2];
-            //             M[i * 4 + 2, 11] = 1.0f;
-            // 
-            //             M[i * 4 + 3, 12] = xx[i][0];
-            //             M[i * 4 + 3, 13] = xx[i][1];
-            //             M[i * 4 + 3, 14] = xx[i][2];
-            //             M[i * 4 + 3, 15] = 1.0f;
-            // 
-            //             bb[i * 4 + 0] = zz[i][0];
-            //             bb[i * 4 + 1] = zz[i][1];
-            //             bb[i * 4 + 2] = zz[i][2];
-            //             bb[i * 4 + 3] = zz[i][3];
         }
-        // https://christoph.ruegg.name/blog/linear-regression-mathnet-numerics.html
-        Vector pp = (Vector) M.QR().Solve(bb);
-        Debug.Log ("Results: " + pp + "M = " + M + "b = " + bb);
-        
+            MathNet.Numerics.LinearAlgebra.Factorization.Svd<float> svdResult = M.Svd ();
+    Matrix U = (Matrix) svdResult.U;
+    Vector S = (Vector) svdResult.S;
+    Matrix Vt = (Matrix) svdResult.VT;
+    Debug.Log ("SVD " + U + " " + S + " " + Vt);
+
+    Vector pp = (Vector) Vt.Row (15);
+    Debug.Log ("Other soln " + pp);
+            Vector rr = (Vector) M.Multiply (pp);
+            Debug.Log ("Verify2M : " + rr + " " + pp);
         Matrix A = (Matrix) new DenseMatrix (4, 4, new float [] { pp[0], pp[1], pp[2], pp[3],
             pp[4], pp[5], pp[6], pp[7],
             pp[8], pp[9], pp[10], pp[11],
             pp[12], pp[13], pp[14], pp[15]}).Transpose ();
+            
+            Debug.Log ("Result matrix: " + A);
+            
             for (int i = 0; i < xx.Length; i++)
             {
-                Vector mapv = zz[i];
+                            float v = phase[(int) (map[i].y * phaseHeight), (int) (map[i].x * phaseWidth)];
+
+                Vector mapv = new DenseVector (new float [] { map[i].x, map[i].y, v, 1 });
                 Vector o = (Vector) A.Multiply (mapv);
                 
-                Debug.Log ("Outs : " + zz[i] + " == " + o + " " + xx[i]);
+                Debug.Log ("Outs : " + mapv + " == " + (o / o[3]) + " " + xx[i]);
             }
+
             
-            makeMesh (renderDetail, scanObject, A);
+            
+            
+            
+            
+//         Matrix M = new DenseMatrix (xx.Length * 4, 16);
+//         Vector bb = new DenseVector (xx.Length * 4);
+//         for (int i = 0; i < xx.Length; i++)
+//         {
+//             M[i * 4 + 0, 0] = zz[i][0];
+//             M[i * 4 + 0, 1] = zz[i][1];
+//             M[i * 4 + 0, 2] = zz[i][2];
+//             M[i * 4 + 0, 3] = zz[i][3];
+//             
+//             M[i * 4 + 1, 4] = zz[i][0];
+//             M[i * 4 + 1, 5] = zz[i][1];
+//             M[i * 4 + 1, 6] = zz[i][2];
+//             M[i * 4 + 1, 7] = zz[i][3];
+//             
+//             M[i * 4 + 2, 8] = zz[i][0];
+//             M[i * 4 + 2, 9] = zz[i][1];
+//             M[i * 4 + 2, 10] = zz[i][2];
+//             M[i * 4 + 2, 11] = zz[i][3];
+//             
+//             M[i * 4 + 3, 12] = zz[i][0];
+//             M[i * 4 + 3, 13] = zz[i][1];
+//             M[i * 4 + 3, 14] = zz[i][2];
+//             M[i * 4 + 3, 15] = zz[i][3];
+//             
+//             bb[i * 4 + 0] = xx[i].x;
+//             bb[i * 4 + 1] = xx[i].y;
+//             bb[i * 4 + 2] = xx[i].z;
+//             bb[i * 4 + 3] = 1.0f;
+//             
+//             //             M[i * 4 + 0, 0] = xx[i][0];
+//             //             M[i * 4 + 0, 1] = xx[i][1];
+//             //             M[i * 4 + 0, 2] = xx[i][2];
+//             //             M[i * 4 + 0, 3] = 1.0f;
+//             //             
+//             //             M[i * 4 + 1, 4] = xx[i][0];
+//             //             M[i * 4 + 1, 5] = xx[i][1];
+//             //             M[i * 4 + 1, 6] = xx[i][2];
+//             //             M[i * 4 + 1, 7] = 1.0f;
+//             // 
+//             //             M[i * 4 + 2, 8] = xx[i][0];
+//             //             M[i * 4 + 2, 9] = xx[i][1];
+//             //             M[i * 4 + 2, 10] = xx[i][2];
+//             //             M[i * 4 + 2, 11] = 1.0f;
+//             // 
+//             //             M[i * 4 + 3, 12] = xx[i][0];
+//             //             M[i * 4 + 3, 13] = xx[i][1];
+//             //             M[i * 4 + 3, 14] = xx[i][2];
+//             //             M[i * 4 + 3, 15] = 1.0f;
+//             // 
+//             //             bb[i * 4 + 0] = zz[i][0];
+//             //             bb[i * 4 + 1] = zz[i][1];
+//             //             bb[i * 4 + 2] = zz[i][2];
+//             //             bb[i * 4 + 3] = zz[i][3];
+//         }
+//         // https://christoph.ruegg.name/blog/linear-regression-mathnet-numerics.html
+//         Vector pp = (Vector) M.QR().Solve(bb);
+//         Debug.Log ("Results: " + pp + "M = " + M + "b = " + bb);
+//         
+//         Matrix A = (Matrix) new DenseMatrix (4, 4, new float [] { pp[0], pp[1], pp[2], pp[3],
+//             pp[4], pp[5], pp[6], pp[7],
+//             pp[8], pp[9], pp[10], pp[11],
+//             pp[12], pp[13], pp[14], pp[15]}).Transpose ();
+//             
+//             Debug.Log ("Result matrix: " + A);
+//             
+//             for (int i = 0; i < xx.Length; i++)
+//             {
+//                 Vector mapv = zz[i];
+//                 Vector o = (Vector) A.Multiply (mapv);
+//                 
+//                 Debug.Log ("Outs : " + zz[i] + " == " + o + " " + xx[i]);
+//             }
+            
+            
+             makeMesh (renderDetail, scanObject, A);
+            
+            
             //  // data points
             // var xdata = new float[] { 10, 20, 30 };
             // var ydata = new float[] { 15, 20, 25 };
@@ -211,9 +340,9 @@ public class ThreePhase
                 Vector o = (Vector) A.Multiply (inv);
                 
                 meshTex.SetPixel (x / step, y / step, colours[y, x]);
-                xc = o[0] + 0.5f;
-                yc = o[1];
-                zc = o[2] + 0.5f;
+                xc = (o[0] / o[3]) + 0.5f;
+                yc = (o[1] / o[3]);
+                zc = (o[2] / o[3]) + 0.5f;
                 
                 vertices[(y / step) * (phaseWidth / step) + (x / step)] = new Vector3(xc - 0.5f, yc, zc - 0.5f);
                 uvs[(y / step) * (phaseWidth / step) + (x / step)] = new Vector2( (float)x / phaseWidth, (float)y / phaseHeight);
