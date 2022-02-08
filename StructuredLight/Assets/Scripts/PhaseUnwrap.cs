@@ -28,12 +28,10 @@ public class PhaseUnwrap: MonoBehaviour
         t = new ThreePhase ();
         t.unwrapPhase (phaseImages[0], phaseImages[1], phaseImages[2]);
     }
-
+    
     // To register camera view and 3D environment, define a number of
     // points on surfaces in the scene, and provide an interface to
     // click on each and record their positions.
-    bool startReg = false;
-    int regCount = 0;
     Vector3 [] regLoc = 
     { 
         new Vector3 (-0.4f, 0.4f, -0.5f), 
@@ -46,11 +44,6 @@ public class PhaseUnwrap: MonoBehaviour
         new Vector3 (0.6f, -1.0f, 0.5f),         
         new Vector3 (0.0f, -1.0f, 0.0f), 
     };
-    Vector2 [] mapLoc;
-    
-    // Templates for a marker object to be clicked on.
-    GameObject ro = null;
-    public GameObject regTemplate;
     
     void Update()
     {
@@ -63,38 +56,16 @@ public class PhaseUnwrap: MonoBehaviour
         // Calibrate phase against 3D scene, and generate mesh.
         if (Input.GetKeyDown (KeyCode.LeftAlt))
         {
-            regCount = 0;
-            mapLoc = new Vector2 [regLoc.Length];
-            startReg = true;
-        }
-        
-        if (startReg)
-        {
-            if (ro == null)
+            Vector2 [] mapLoc = new Vector2 [regLoc.Length];
+            
+            for (int i = 0; i < regLoc.Length; i++)
             {
-                // create a new marker, if none exists.
-                int i = regCount % regLoc.Length;
-                ro = Instantiate (regTemplate, regLoc[i], Quaternion.identity);
+                Debug.Log ("  " + Camera.main.WorldToScreenPoint (regLoc[i]));
+                Vector3 p = Camera.main.WorldToScreenPoint (regLoc[i]);
+                mapLoc[i] = new Vector2 (p.x / Screen.width, p.y / Screen.height);
             }
             
-            // record clicks, assuming they are on the target object.
-            if (Input.GetMouseButtonDown(0))
-            {
-                Camera.main.targetTexture = phaseImages[0];
-                Vector3 p = Input.mousePosition;
-                mapLoc[regCount] = new Vector2 (p.x / Screen.width, p.y / Screen.height);
-                Camera.main.targetTexture = null;
-                
-                Destroy (ro);
-                ro = null;
-                regCount += 1;
-                
-                if (regCount >= regLoc.Length)
-                {
-                    startReg = false;
-                    t.findMatrix (regLoc, mapLoc, scanObject);
-                }
-            }
+            t.findMatrix (regLoc, mapLoc, scanObject);
         }
     }
 }

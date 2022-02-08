@@ -64,8 +64,10 @@ Shader "Custom/StructuredLightShader"
             half4 c;
             
     #if defined (SPOT)
-            float4 lightCoord = mul(unity_WorldToLight, float4 (s.worldPos, 1));
-            float u = lightCoord.x / lightCoord.z; // avoid projection from spotlight's angle using .w
+            float4 lightCoord = normalize (mul(unity_WorldToLight, float4 (s.worldPos, 1)));
+//             float4 lightCoord = mul(unity_WorldToLight, float4 (s.worldPos, 1));
+//             float u = lightCoord.x / lightCoord.z; // avoid projection from spotlight's angle using .w
+            float u = lightCoord.x; // avoid projection from spotlight's angle using .w
             atten = atten * 0.5 * (1.0 + sin (_Frequency * u + _Phase));
             
             // See if we can get a zero phase line.
