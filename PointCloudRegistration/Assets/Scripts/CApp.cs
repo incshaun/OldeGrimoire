@@ -27,15 +27,13 @@
 // IN THE SOFTWARE.
 // ----------------------------------------------------------------------------
 
-// using namespace Eigen;
-// using namespace std;
-// using namespace fgr;
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using MathNet.Numerics.LinearAlgebra.Single;
+using MathNet.Numerics.Statistics;
 using UnityEngine;
 using KdTree;
 using KdTree.Math;
@@ -50,7 +48,7 @@ namespace fgr
     {
         public const double DIV_FACTOR = 1.4;		// Division factor used for graduated non-convexity
         public const bool USE_ABSOLUTE_SCALE = false;		// Measure distance in absolute scale (1) or in scale relative to the diameter of the model (0)
-        public const double MAX_CORR_DIST = 0.025;	// Maximum correspondence distance (also see comment of USE_ABSOLUTE_SCALE)
+        public const double MAX_CORR_DIST = 0.25;	// Maximum correspondence distance (also see comment of USE_ABSOLUTE_SCALE)
         public const int ITERATION_NUMBER = 64;		// Maximum number of iteration
         public const float TUPLE_SCALE = 0.95f;	// Similarity measure used for tuples of feature points.
         public const int TUPLE_MAX_CNT = 1000;	// Maximum tuple numbers.
@@ -58,7 +56,6 @@ namespace fgr
         // containers
         private List <Points> pointcloud_;
         private List <Feature> features_;
-//         private Eigen::Matrix4f TransOutput_;
         private Matrix4x4 TransOutput_;
         private List <(int, int)> corres_;
 
@@ -101,6 +98,217 @@ namespace fgr
         {
             pointcloud_.Add(pts);
             features_.Add(feat);
+        }
+        
+        /*
+         https://pcl.readthedocs.io/projects/tutorials/en/latest/fpfh_estimation.html
+         
+        Fast Point Feature Histograms (FPFH) descriptors
+The theoretical computational complexity of the Point Feature Histogram (see Point Feature Histograms (PFH) descriptors) for a given point cloud P with n points is O(nk^2), where k is the number of neighbors for each point p in P. For real-time or near real-time applications, the computation of Point Feature Histograms in dense point neighborhoods can represent one of the major bottlenecks.
+
+This tutorial describes a simplification of the PFH formulation, called Fast Point Feature Histograms (FPFH) (see [RusuDissertation] for more information), that reduces the computational complexity of the algorithm to O(nk), while still retaining most of the discriminative power of the PFH.
+
+Theoretical primer
+To simplify the histogram feature computation, we proceed as follows:
+
+in a first step, for each query point p_q a set of tuples \alpha, \phi, \theta between itself and its neighbors are computed as described in Point Feature Histograms (PFH) descriptors - this will be called the Simplified Point Feature Histogram (SPFH);
+in a second step, for each point its k neighbors are re-determined, and the neighboring SPFH values are used to weight the final histogram of p_q (called FPFH) as follows:
+FPFH(\boldsymbol{p}_q) = SPFH(\boldsymbol{p}_q) + {1 \over k} \sum_{i=1}^k {{1 \over \omega_i} \cdot SPFH(\boldsymbol{p}_i)}
+
+where the weight \omega_i represents a distance between the query point p_q and a neighbor point p_i in some given metric space, thus scoring the (p_q, p_i) pair, but could just as well be selected as a different measure if necessary. To understand the importance of this weighting scheme, the figure below presents the influence region diagram for a k-neighborhood set centered at p_q.
+
+_images/fpfh_diagram.png
+Thus, for a given query point p_q, the algorithm first estimates its SPFH values by creating pairs between itself and its neighbors (illustrated using red lines). This is repeated for all the points in the dataset, followed by a re-weighting of the SPFH values of p_q using the SPFH values of its k neighbors, thus creating the FPFH for p_q. The extra FPFH connections, resultant due to the additional weighting scheme, are shown with black lines. As the diagram shows, some of the value pairs will be counted twice (marked with thicker lines in the figure).
+
+Differences between PFH and FPFH
+The main differences between the PFH and FPFH formulations are summarized below:
+
+the FPFH does not fully interconnect all neighbors of p_q as it can be seen from the figure, and is thus missing some value pairs which might contribute to capture the geometry around the query point;
+the PFH models a precisely determined surface around the query point, while the FPFH includes additional point pairs outside the r radius sphere (though at most 2r away);
+because of the re-weighting scheme, the FPFH combines SPFH values and recaptures some of the point neighboring value pairs;
+the overall complexity of FPFH is greatly reduced, thus making possible to use it in real-time applications;
+the resultant histogram is simplified by decorrelating the values, that is simply creating d separate feature histograms, one for each feature dimension, and concatenate them together (see figure below).
+_images/fpfh_theory.jpg
+Estimating FPFH features
+Fast Point Feature Histograms are implemented in PCL as part of the pcl_features library.
+
+The default FPFH implementation uses 11 binning subdivisions (e.g., each of the four feature values will use this many bins from its value interval), and a decorrelated scheme (see above: the feature histograms are computed separately and concantenated) which results in a 33-byte array of float values. These are stored in a pcl::FPFHSignature33 point type.
+
+The following code snippet will estimate a set of FPFH features for all the points in the input dataset.
+
+#include <pcl/point_types.h>
+#include <pcl/features/fpfh.h>
+
+{
+  pcl::PointCloud<pcl::PointXYZ>::Ptr cloud (new pcl::PointCloud<pcl::PointXYZ>);
+  pcl::PointCloud<pcl::Normal>::Ptr normals (new pcl::PointCloud<pcl::Normal> ());
+
+  ... read, pass in or create a point cloud with normals ...
+  ... (note: you can create a single PointCloud<PointNormal> if you want) ...
+
+  // Create the FPFH estimation class, and pass the input dataset+normals to it
+  pcl::FPFHEstimation<pcl::PointXYZ, pcl::Normal, pcl::FPFHSignature33> fpfh;
+  fpfh.setInputCloud (cloud);
+  fpfh.setInputNormals (normals);
+  // alternatively, if cloud is of tpe PointNormal, do fpfh.setInputNormals (cloud);
+
+  // Create an empty kdtree representation, and pass it to the FPFH estimation object.
+  // Its content will be filled inside the object, based on the given input dataset (as no other search surface is given).
+  pcl::search::KdTree<PointXYZ>::Ptr tree (new pcl::search::KdTree<PointXYZ>);
+
+  fpfh.setSearchMethod (tree);
+
+  // Output datasets
+  pcl::PointCloud<pcl::FPFHSignature33>::Ptr fpfhs (new pcl::PointCloud<pcl::FPFHSignature33> ());
+
+  // Use all neighbors in a sphere of radius 5cm
+  // IMPORTANT: the radius used here has to be larger than the radius used to estimate the surface normals!!!
+  fpfh.setRadiusSearch (0.05);
+
+  // Compute the features
+  fpfh.compute (*fpfhs);
+
+  // fpfhs->size () should have the same size as the input cloud->size ()*
+}
+The actual compute call from the FPFHEstimation class does nothing internally but:
+
+for each point p in cloud P
+
+  1. pass 1:
+
+     1. get the nearest neighbors of :math:`p`
+
+     2. for each pair of :math:`p, p_i` (where :math:`p_i` is a neighbor of :math:`p`, compute the three angular values
+
+     3. bin all the results in an output SPFH histogram
+
+  2. pass 2:
+
+     1. get the nearest neighbors of :math:`p`
+
+     3. use each SPFH of :math:`p` with a weighting scheme to assemble the FPFH of :math:`p`:
+Note
+
+For efficiency reasons, the compute method in FPFHEstimation does not check if the normals contains NaN or infinite values. Passing such values to compute() will result in undefined output. It is advisable to check the normals, at least during the design of the processing chain or when setting the parameters. This can be done by inserting the following code before the call to compute():
+
+for (int i = 0; i < normals->size(); i++)
+{
+  if (!pcl::isFinite<pcl::Normal>((*normals)[i]))
+  {
+    PCL_WARN("normals[%d] is not finite\n", i);
+  }
+}
+In production code, preprocessing steps and parameters should be set so that normals are finite or raise an error.
+
+Speeding FPFH with OpenMP
+For the speed-savvy users, PCL provides an additional implementation of FPFH estimation which uses multi-core/multi-threaded paradigms using OpenMP to speed the computation. The name of the class is pcl::FPFHEstimationOMP, and its API is 100% compatible to the single-threaded pcl::FPFHEstimation, which makes it suitable as a drop-in replacement. On a system with 8 cores, you should get anything between 6-8 times faster computation times.
+
+ 
+         
+        */
+        
+        private void computeAngles (Vector ps, Vector ns, Vector pt, Vector nt, out float alpha, out float phi, out float theta)
+        {
+            Vector3 psv = new Vector3 (ps[0], ps[1], ps[2]);
+            Vector3 ptv = new Vector3 (pt[0], pt[1], pt[2]);
+            Vector3 ntv = new Vector3 (nt[0], nt[1], nt[2]).normalized;
+            Vector3 u = new Vector3 (ns[0], ns[1], ns[2]).normalized;
+            Vector3 v = Vector3.Cross (u, (ptv - psv).normalized);
+            Vector3 w = Vector3.Cross (u, v);
+            float d = (ptv - psv).magnitude;
+            alpha = Vector3.Dot (v, ntv);
+            phi = Vector3.Dot (u, (ptv - psv) / d);
+//             Debug.Log ("D " + d + " " + u + " " + new Vector3 (ns[0], ns[1], ns[2]));
+            theta = Mathf.Atan2 (Vector3.Dot (w, ntv), Vector3.Dot (u, ntv));
+        }
+        
+        private Feature calculateSPFH (Points pts)
+        {
+            Feature spfh = new Feature ();
+            Points normals = new Points ();
+            
+            for (int i = 0; i < pts.Count; i++)
+            {
+                normals.Add (pts[i]); // FIXME
+            }
+            
+            float searchRadius = 0.85f;
+            int maxNeighbours = 80;
+            KdTree<float, int> tree = new KdTree<float, int> (3, new FloatMath());
+            BuildKDTree(pts, tree);
+
+            List<int> corres = new List<int> ();
+            List<float> dis = new List<float> ();
+            float alpha, phi, theta;
+            for (int i = 0; i < pts.Count; i++)
+            {
+                SearchKDTree(tree, pts[i], corres, dis, maxNeighbours);
+                
+                List <double> alphas = new List <double> ();
+                List <double> phis = new List <double> ();
+                List <double> thetas = new List <double> ();
+                for (int j = 0; j < corres.Count; j++)
+                {
+                  if ((corres[j] != i) && (dis[j] < searchRadius) && (dis[j] > 0.0f))
+                  {
+//                       Debug.Log ("UJ " + i + " " + j + " " + corres[j]);
+                    computeAngles (pts[i], normals[i], pts[corres[j]], normals[corres[j]], out alpha, out phi, out theta); 
+                    alphas.Add (alpha);
+                    phis.Add (phi);
+                    thetas.Add (theta);
+                  }
+                }
+                Vector feat_v = new DenseVector (33);
+                if (alphas.Count > 0)
+                {
+//                     if (phis.Count > 3)
+//                     Debug.Log ("AA " + alphas.Count + " " + phis.Count + " " + thetas.Count + " " + phis[0] + " " + phis[1] + " " + phis[2] + " ");
+                    Histogram alphah = new Histogram (alphas, 11);
+                    Histogram phih = new Histogram (phis, 11);
+                    Histogram thetah = new Histogram (thetas, 11);
+                    
+                    for (int j = 0; j < 11; j++)
+                    {
+                        feat_v[j * 3 + 0] = ((float) alphah[j].Count) / alphah.BucketCount;
+                        feat_v[j * 3 + 1] = ((float) phih[j].Count) / phih.BucketCount;
+                        feat_v[j * 3 + 2] = ((float) thetah[j].Count) / thetah.BucketCount;
+                    }
+                }
+                else
+                {
+                    for (int j = 0; j < 33; j++)
+                    {
+                        feat_v[j] = 0.0f;
+                    }
+                }
+                
+                spfh.Add (feat_v);
+//                 Debug.Log ("Feat " + i + " " + feat_v.ToString ());
+            }
+            return spfh;
+        }
+        
+        public void AddFeature(List <Vector3> pointCloud)
+        {
+            Points pts = new Points ();
+            Feature feat = new Feature ();
+
+            for (int v = 0; v < pointCloud.Count; v++)	{
+                Vector pts_v = new DenseVector (new float [] { pointCloud[v].x, pointCloud[v].y, pointCloud[v].z });
+                pts.Add(pts_v);
+            }
+            
+            feat = calculateSPFH (pts);
+            
+            int ndim = feat[0].Count;
+//             for (int v = 0; v < pointCloud.Count; v++)	{
+//                 float [] vals = new float [ndim];
+//                 vals[0] = 1.0f;
+//                 Vector feat_v = new DenseVector (vals);
+//                 feat.Add(feat_v);
+//             }
+            Debug.LogFormat("{0} points with {1} feature dimensions.\n", pointCloud.Count, ndim);
+            LoadFeature(pts,feat);
         }
         
         private void ReadFeature(string filepath, Points pts, Feature feat)
@@ -152,7 +360,6 @@ namespace fgr
             return (float) (a.Norm (2.0));
         }
         
-//         private void BuildKDTree<T> (List <T> data, KDTree tree)
         private void BuildKDTree (List <Vector> data, KdTree<float, int> tree)
         {
             int rows, dim;
@@ -167,42 +374,14 @@ namespace fgr
                 }
                 tree.Add (datarow, i);
             }
-//             Debug.Log ("True " + tree + " " + tree.Count + " " + rows);
-            
-            
-            
-//             List<float> dataset(rows * dim);
-// //             flann::Matrix<float> dataset_mat(dataset, rows, dim);
-//             for (int i = 0; i < rows; i++)
-//                 for (int j = 0; j < dim; j++)
-//                     dataset[i * dim + j] = data[i][j];
-// //                 KDTree temp_tree(dataset_mat, flann::KDTreeSingleIndexParams(15));
-//             temp_tree.buildIndex();
-//             *tree = temp_tree;
         }
         
-//         private void SearchKDTree<T> (KDTree tree, T input, 
-//                                 List <int> indices,
-//                                 List <float> dists, int nn)
         private void SearchKDTree (KdTree<float, int> tree, Vector input, 
                                 List <int> indices,
                                 List <float> dists, int nn)
         {
             int rows_t = 1;
             int dim = input.Count;
-            
-//             List<float> query;
-//             query.resize(rows_t*dim);
-//             for (int i = 0; i < dim; i++)
-//                 query[i] = input(i);
-// //             flann::Matrix<float> query_mat(&query[0], rows_t, dim);
-//             
-//             indices.resize(rows_t*nn);
-//             dists.resize(rows_t*nn);
-// //             flann::Matrix<int> indices_mat(&indices[0], rows_t, nn);
-// //             flann::Matrix<float> dists_mat(&dists[0], rows_t, nn);
-//             
-//             tree->knnSearch(query_mat, indices_mat, dists_mat, nn, flann::SearchParams(128));
             
             float [] datarow = new float [dim];
             for (int j = 0; j < dim; j++)
@@ -216,9 +395,8 @@ namespace fgr
             dists.Clear ();
             for (int a = 0; a < nn; a++)
             {
-//                 Debug.Log ("Out " + a  + " " + result[a] + " " + nn);
                 indices.Add (result[a].Value);
-                dists.Add (sqrnorm ((Vector) (new DenseVector (result[a].Point) - datarowv))); // FIXME
+                dists.Add (sqrnorm ((Vector) (new DenseVector (result[a].Point) - datarowv))); 
             }
         }
         
@@ -255,11 +433,9 @@ namespace fgr
             /// BUILD FLANNTREE
             ///////////////////////////
             
-//             KDTree feature_tree_i(flann::KDTreeSingleIndexParams(15));
             KdTree<float, int> feature_tree_i = new KdTree<float, int> (features_[fi][0].Count, new FloatMath());
             BuildKDTree(features_[fi], feature_tree_i);
             
-//             KDTree feature_tree_j(flann::KDTreeSingleIndexParams(15));
             KdTree<float, int> feature_tree_j = new KdTree<float, int> (features_[fj][0].Count, new FloatMath());
             BuildKDTree(features_[fj], feature_tree_j);
             
@@ -529,7 +705,6 @@ namespace fgr
             
             double par;
             int numIter = iteration_number_;
-//             TransOutput_ = Eigen::Matrix4f::Identity();
             TransOutput_ = Matrix4x4.identity;
             
             par = StartScale;
@@ -540,20 +715,15 @@ namespace fgr
             // make another copy of pointcloud_[j].
             Points pcj_copy = new Points ();
             int npcj = pointcloud_[j].Count;
-            //pcj_copy.resize(npcj);
             for (int cnt = 0; cnt < npcj; cnt++)
                 pcj_copy.Add (pointcloud_[j][cnt]);
-//                 pcj_copy[cnt] = pointcloud_[j][cnt];
             
             if (corres_.Count < 10)
                 return -1;
             
-//             List<double> s = new List<double> (corres_.Count, 1.0);
             List<double> s = buildList (corres_.Count, 1.0);
             
-//             Eigen::Matrix4f trans;
             Matrix4x4 trans = Matrix4x4.identity;
-//             trans.setIdentity();
             
             for (int itr = 0; itr < numIter; itr++) {
                 
@@ -566,14 +736,9 @@ namespace fgr
                 }
                 
                 const int nvariable = 6;	// 3 for rotation and 3 for translation
-//                 Eigen::MatrixXd JTJ(nvariable, nvariable);
-//                 Eigen::MatrixXd JTr(nvariable, 1);
-//                 Eigen::MatrixXd J(nvariable, 1);
                 Matrix JTJ = (Matrix) Matrix.Build.Dense (nvariable, nvariable, 0.0f);
                 Matrix JTr = (Matrix) Matrix.Build.Dense (nvariable, 1, 0.0f);
                 Matrix J;
-//                JTJ.setZero();
-//                 JTr.setZero();
                 
                 double r;
                 double r2 = 0.0;
@@ -591,7 +756,6 @@ namespace fgr
                     float temp = (float) (par / (rpq.DotProduct(rpq) + par));
                     s[c2] = temp * temp;
                     
-//                    J.setZero();
                     J = (Matrix) Matrix.Build.Dense (nvariable, 1, 0.0f);
                     J[1, 0] = -q[2];
                     J[2, 0] = q[1];
@@ -602,7 +766,6 @@ namespace fgr
                     r2 += r * r * s[c2];
                     
                     J = (Matrix) Matrix.Build.Dense (nvariable, 1, 0.0f);
-//                     J.setZero();
                     J[2, 0] = -q[0];
                     J[0, 0] = q[2];
                     J[4, 0] = -1;
@@ -612,7 +775,6 @@ namespace fgr
                     r2 += r * r * s[c2];
                     
                     J = (Matrix) Matrix.Build.Dense (nvariable, 1, 0.0f);
-//                     J.setZero();
                     J[0, 0] = -q[1];
                     J[1, 0] = q[0];
                     J[5, 0] = -1;
@@ -624,23 +786,13 @@ namespace fgr
                     r2 += (par * (1.0 - Math.Sqrt(s[c2])) * (1.0 - Math.Sqrt(s[c2])));
                 }
                 
-//                 Eigen::MatrixXd result(nvariable, 1);
                 Matrix result;
-//                 result = -JTJ.llt().solve(JTr);
                 result = (Matrix) (-JTJ.Solve(JTr)); // Removed LLT
                 
                 Matrix4x4 aff_mat = new Matrix4x4 ();
                 aff_mat.SetTRS (new Vector3 (result[3, 0], result[4, 0], result[5, 0]), Quaternion.AngleAxis (result[2, 0] * Mathf.Rad2Deg, Vector3.forward) * Quaternion.AngleAxis (result[1, 0] * Mathf.Rad2Deg, Vector3.up) * Quaternion.AngleAxis (result[0, 0] * Mathf.Rad2Deg, Vector3.right), Vector3.one);
                 Matrix4x4 delta = aff_mat;
                 
-//                 Eigen::Affine3d aff_mat;
-//                 aff_mat.linear() = (Eigen::Matrix3d) Eigen::AngleAxisd(result(2), Eigen::Vector3d::UnitZ())
-//                 * Eigen::AngleAxisd(result(1), Eigen::Vector3d::UnitY())
-//                 * Eigen::AngleAxisd(result(0), Eigen::Vector3d::UnitX());
-//                 aff_mat.translation() = Eigen::Vector3d(result(3), result(4), result(5));
-//                 
-//                 Eigen::Matrix4f delta = aff_mat.matrix().cast<float>();
-//                 
                 trans = delta * trans;
                 TransformPoints(pcj_copy, delta);
                 
@@ -653,31 +805,32 @@ namespace fgr
         private void TransformPoints(Points points, Matrix4x4 Trans)
         {
             int npc = (int)points.Count;
-//             Matrix3f R = Trans.block<3, 3>(0, 0);
-//             Vector3f t = Trans.block<3, 1>(0, 3);
             Vector3 temp;
             for (int cnt = 0; cnt < npc; cnt++) {
                 temp = Trans.MultiplyPoint (new Vector3 (points[cnt][0], points[cnt][1], points[cnt][2]));
-//                 temp = R * points[cnt] + t;
                 points[cnt] = new DenseVector (new float [] { temp.x, temp.y,temp.z });
             }
         }
         
-        Matrix4x4 GetOutputTrans()
+        public List <Vector3> GetTransformedPoints (List <Vector3> src)
         {
-//             Eigen::Matrix3f R;
-//             Vector t;
-//             R = TransOutput_.block<3, 3>(0, 0);
-//             t = TransOutput_.block<3, 1>(0, 3);
-//             
-//             Eigen::Matrix4f transtemp;
-//             transtemp.fill(0.0f);
-//             
-//             transtemp.block<3, 3>(0, 0) = R;
-//             transtemp.block<3, 1>(0, 3) = -R*Means[1] + t*GlobalScale + Means[0];
-//             transtemp(3, 3) = 1;
-//             
-//             return transtemp;
+            Points pcj_copy = new Points ();
+            int npcj = src.Count;
+            for (int cnt = 0; cnt < npcj; cnt++)
+                pcj_copy.Add (new DenseVector (new float [] { src[cnt].x, src[cnt].y, src[cnt].z }));
+            TransformPoints(pcj_copy, GetOutputTrans ());
+            
+            List <Vector3> v = new List <Vector3> ();
+            for (int cnt = 0; cnt < npcj; cnt++)
+            {
+                v.Add (new Vector3 (pcj_copy[cnt][0], pcj_copy[cnt][1], pcj_copy[cnt][2]));
+            }
+            return v;
+        }
+        
+        public Matrix4x4 GetOutputTrans()
+        {
+            Debug.Log ("Res " + TransOutput_ + " " + Means.Count);
             Quaternion R = TransOutput_.rotation;
             Vector3 t = new Vector3 (TransOutput_[0, 3], TransOutput_[1, 3], TransOutput_[2, 3]);
             Matrix4x4 transtemp = TransOutput_;
@@ -686,7 +839,9 @@ namespace fgr
             transtemp[1, 3] = tt.y;
             transtemp[2, 3] = tt.z;
             
-            return transtemp;
+            Matrix4x4 itranstemp = new Matrix4x4 ();
+            Matrix4x4.Inverse3DAffine (transtemp,ref itranstemp);
+            return itranstemp;
         }
         
         public void WriteTrans(string filepath)
@@ -703,7 +858,7 @@ namespace fgr
             fid.Write (string.Format ("{0:0.0000000000} {1:0.0000000000} {2:0.0000000000} {3:0.0000000000}\n", transtemp[0, 0], transtemp[0, 1], transtemp[0, 2], transtemp[0, 3]));
             fid.Write (string.Format ("{0:0.0000000000} {1:0.0000000000} {2:0.0000000000} {3:0.0000000000}\n", transtemp[1, 0], transtemp[1, 1], transtemp[1, 2], transtemp[1, 3]));
             fid.Write (string.Format ("{0:0.0000000000} {1:0.0000000000} {2:0.0000000000} {3:0.0000000000}\n", transtemp[2, 0], transtemp[2, 1], transtemp[2, 2], transtemp[2, 3]));
-            fid.Write (string.Format ("{0:0.0000000000} {1:0.0000000000} {2:0.0000000000} {3:0.0000000000}\n", 0.0f, 0.0f, 0.0f, 1.0f));
+            fid.Write (string.Format ("{0:0.0000000000} {1:0.0000000000} {2:0.0000000000} {3:0.0000000000}\n", transtemp[3, 0], transtemp[3, 1], transtemp[3, 2], transtemp[3, 3]));
             
             fid.Close();
         }
@@ -733,7 +888,6 @@ namespace fgr
         private Matrix4x4 ReadTrans(string filename)
         {
             Matrix4x4 temp = new Matrix4x4 ();
-//             temp.fill(0);
             int [] tempi;
             int cnt = 0;
             StreamReader fid = new StreamReader (filename);

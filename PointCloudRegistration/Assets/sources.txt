@@ -1,4 +1,5 @@
 https://github.com/isl-org/FastGlobalRegistration
 https://github.com/codeandcats/KdTree
 (We don't need any of the test functions, in case they are causing errors)
+Dragon object: https://free3d.com/3d-model/dragon-busts-by-gerhald3d-293990.html
 
