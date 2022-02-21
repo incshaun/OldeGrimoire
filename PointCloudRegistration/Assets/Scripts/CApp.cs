@@ -222,23 +222,66 @@ For the speed-savvy users, PCL provides an additional implementation of FPFH est
             theta = Mathf.Atan2 (Vector3.Dot (w, ntv), Vector3.Dot (u, ntv));
         }
         
+        // Also from chapter 4 of: @PhDThesis{RusuDoctoralDissertation, author = {Radu Bogdan Rusu}, title = {Semantic 3D Object Maps for Everyday Manipulation in Human Living Environments}, school = {Computer Science department, Technische Universitaet Muenchen, Germany}, year = {2009}, month = {October} }
         private Feature calculateSPFH (Points pts)
         {
-            Feature spfh = new Feature ();
+            float searchRadius = 0.85f; // r
+            int maxNeighbours = 80; // k
+            KdTree<float, int> tree = new KdTree<float, int> (3, new FloatMath());
+            BuildKDTree(pts, tree);
+            List<int> corres = new List<int> ();
+            List<float> dis = new List<float> ();
+
             Points normals = new Points ();
             
             for (int i = 0; i < pts.Count; i++)
             {
-                normals.Add (pts[i]); // FIXME
+                SearchKDTree(tree, pts[i], corres, dis, maxNeighbours);
+                
+                List <Vector> p = new List <Vector> ();
+                for (int j = 0; j < corres.Count; j++)
+                {
+                  if ((corres[j] != i) && (dis[j] < searchRadius) && (dis[j] > 0.0f))
+                  {
+                      p.Add (pts[corres[j]]);
+                  }
+                }
+                
+                if (p.Count == 0)
+                {
+                    // no neighbours. Fudge normal.
+                    normals.Add (pts[i]);
+                }
+                else
+                {
+//                     Debug.Log ("Plane fit: " + p.Count);
+                    // Fit: (pi - x).n = 0
+                    // with pi is point on plane. Use pts[i]. x is current point, p[j]
+                    Matrix M = new DenseMatrix (p.Count, 3);
+                    for (int j = 0; j < p.Count; j++)
+                    {
+                        M[j, 0] = pts[i][0] - p[j][0];
+                        M[j, 1] = pts[i][1] - p[j][1];
+                        M[j, 2] = pts[i][2] - p[j][2];
+                    }
+                    
+//                     Debug.Log ("Mat: " + M.RowCount + " " + M.ColumnCount);
+                    MathNet.Numerics.LinearAlgebra.Factorization.Svd<float> svdResult = M.Svd ();
+                    Matrix Vt = (Matrix) svdResult.VT;
+            
+                    // Last row of Vt has the desired solution.
+                    Vector pp = (Vector) Vt.Row (Vt.RowCount - 1);
+//                     Debug.Log ("Fit: " + pp);
+                    
+                    normals.Add (pp);
+                }
+
             }
             
-            float searchRadius = 0.85f;
-            int maxNeighbours = 80;
-            KdTree<float, int> tree = new KdTree<float, int> (3, new FloatMath());
-            BuildKDTree(pts, tree);
-
-            List<int> corres = new List<int> ();
-            List<float> dis = new List<float> ();
+            // Make sure normals face a consistent direction.
+            
+            // Point feature histograms: https://pcl.readthedocs.io/projects/tutorials/en/latest/pfh_estimation.html#pfh-estimation
+            Feature spfh = new Feature ();
             float alpha, phi, theta;
             for (int i = 0; i < pts.Count; i++)
             {
@@ -285,7 +328,38 @@ For the speed-savvy users, PCL provides an additional implementation of FPFH est
                 spfh.Add (feat_v);
 //                 Debug.Log ("Feat " + i + " " + feat_v.ToString ());
             }
-            return spfh;
+//            return spfh;
+            
+            // Fast point feature histograms: https://pcl.readthedocs.io/projects/tutorials/en/latest/fpfh_estimation.html
+            Feature fpfh = new Feature ();
+            for (int i = 0; i < pts.Count; i++)
+            {
+                SearchKDTree(tree, pts[i], corres, dis, maxNeighbours);
+                
+                Vector feat_v = spfh[i];
+
+                int k = 0;
+                for (int j = 0; j < corres.Count; j++)
+                {
+                  if ((corres[j] != i) && (dis[j] < searchRadius) && (dis[j] > 0.0f))
+                  {
+                      k++;
+                  }
+                }
+                
+                for (int j = 0; j < corres.Count; j++)
+                {
+                  if ((corres[j] != i) && (dis[j] < searchRadius) && (dis[j] > 0.0f))
+                  {
+                    feat_v = (Vector) (feat_v + spfh[corres[j]] / (k * dis[j]));
+                  }
+                }
+                
+                fpfh.Add (feat_v);
+//                 Debug.Log ("Feat " + i + " " + feat_v.ToString ());
+            }
+            
+            return fpfh;
         }
         
         public void AddFeature(List <Vector3> pointCloud)
