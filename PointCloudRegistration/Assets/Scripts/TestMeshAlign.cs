@@ -48,8 +48,8 @@ public class TestMeshAlign : MonoBehaviour
     
     void Start()
     {
-        List <Vector3> p1 = extractRandomCloud (4000, false);
-        List <Vector3> p2 = extractRandomCloud (5000, true);
+        List <Vector3> p1 = extractRandomCloud (40000, false);
+        List <Vector3> p2 = extractRandomCloud (50000, true);
         
         displayCloud (p1);
         displayCloud (p2);

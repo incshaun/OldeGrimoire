@@ -98,128 +98,29 @@ namespace fgr
         {
             pointcloud_.Add(pts);
             features_.Add(feat);
-        }
+        }        
         
-        /*
-         https://pcl.readthedocs.io/projects/tutorials/en/latest/fpfh_estimation.html
-         
-        Fast Point Feature Histograms (FPFH) descriptors
-The theoretical computational complexity of the Point Feature Histogram (see Point Feature Histograms (PFH) descriptors) for a given point cloud P with n points is O(nk^2), where k is the number of neighbors for each point p in P. For real-time or near real-time applications, the computation of Point Feature Histograms in dense point neighborhoods can represent one of the major bottlenecks.
-
-This tutorial describes a simplification of the PFH formulation, called Fast Point Feature Histograms (FPFH) (see [RusuDissertation] for more information), that reduces the computational complexity of the algorithm to O(nk), while still retaining most of the discriminative power of the PFH.
-
-Theoretical primer
-To simplify the histogram feature computation, we proceed as follows:
-
-in a first step, for each query point p_q a set of tuples \alpha, \phi, \theta between itself and its neighbors are computed as described in Point Feature Histograms (PFH) descriptors - this will be called the Simplified Point Feature Histogram (SPFH);
-in a second step, for each point its k neighbors are re-determined, and the neighboring SPFH values are used to weight the final histogram of p_q (called FPFH) as follows:
-FPFH(\boldsymbol{p}_q) = SPFH(\boldsymbol{p}_q) + {1 \over k} \sum_{i=1}^k {{1 \over \omega_i} \cdot SPFH(\boldsymbol{p}_i)}
-
-where the weight \omega_i represents a distance between the query point p_q and a neighbor point p_i in some given metric space, thus scoring the (p_q, p_i) pair, but could just as well be selected as a different measure if necessary. To understand the importance of this weighting scheme, the figure below presents the influence region diagram for a k-neighborhood set centered at p_q.
-
-_images/fpfh_diagram.png
-Thus, for a given query point p_q, the algorithm first estimates its SPFH values by creating pairs between itself and its neighbors (illustrated using red lines). This is repeated for all the points in the dataset, followed by a re-weighting of the SPFH values of p_q using the SPFH values of its k neighbors, thus creating the FPFH for p_q. The extra FPFH connections, resultant due to the additional weighting scheme, are shown with black lines. As the diagram shows, some of the value pairs will be counted twice (marked with thicker lines in the figure).
-
-Differences between PFH and FPFH
-The main differences between the PFH and FPFH formulations are summarized below:
-
-the FPFH does not fully interconnect all neighbors of p_q as it can be seen from the figure, and is thus missing some value pairs which might contribute to capture the geometry around the query point;
-the PFH models a precisely determined surface around the query point, while the FPFH includes additional point pairs outside the r radius sphere (though at most 2r away);
-because of the re-weighting scheme, the FPFH combines SPFH values and recaptures some of the point neighboring value pairs;
-the overall complexity of FPFH is greatly reduced, thus making possible to use it in real-time applications;
-the resultant histogram is simplified by decorrelating the values, that is simply creating d separate feature histograms, one for each feature dimension, and concatenate them together (see figure below).
-_images/fpfh_theory.jpg
-Estimating FPFH features
-Fast Point Feature Histograms are implemented in PCL as part of the pcl_features library.
-
-The default FPFH implementation uses 11 binning subdivisions (e.g., each of the four feature values will use this many bins from its value interval), and a decorrelated scheme (see above: the feature histograms are computed separately and concantenated) which results in a 33-byte array of float values. These are stored in a pcl::FPFHSignature33 point type.
-
-The following code snippet will estimate a set of FPFH features for all the points in the input dataset.
-
-#include <pcl/point_types.h>
-#include <pcl/features/fpfh.h>
-
-{
-  pcl::PointCloud<pcl::PointXYZ>::Ptr cloud (new pcl::PointCloud<pcl::PointXYZ>);
-  pcl::PointCloud<pcl::Normal>::Ptr normals (new pcl::PointCloud<pcl::Normal> ());
-
-  ... read, pass in or create a point cloud with normals ...
-  ... (note: you can create a single PointCloud<PointNormal> if you want) ...
-
-  // Create the FPFH estimation class, and pass the input dataset+normals to it
-  pcl::FPFHEstimation<pcl::PointXYZ, pcl::Normal, pcl::FPFHSignature33> fpfh;
-  fpfh.setInputCloud (cloud);
-  fpfh.setInputNormals (normals);
-  // alternatively, if cloud is of tpe PointNormal, do fpfh.setInputNormals (cloud);
-
-  // Create an empty kdtree representation, and pass it to the FPFH estimation object.
-  // Its content will be filled inside the object, based on the given input dataset (as no other search surface is given).
-  pcl::search::KdTree<PointXYZ>::Ptr tree (new pcl::search::KdTree<PointXYZ>);
-
-  fpfh.setSearchMethod (tree);
-
-  // Output datasets
-  pcl::PointCloud<pcl::FPFHSignature33>::Ptr fpfhs (new pcl::PointCloud<pcl::FPFHSignature33> ());
-
-  // Use all neighbors in a sphere of radius 5cm
-  // IMPORTANT: the radius used here has to be larger than the radius used to estimate the surface normals!!!
-  fpfh.setRadiusSearch (0.05);
-
-  // Compute the features
-  fpfh.compute (*fpfhs);
-
-  // fpfhs->size () should have the same size as the input cloud->size ()*
-}
-The actual compute call from the FPFHEstimation class does nothing internally but:
-
-for each point p in cloud P
-
-  1. pass 1:
-
-     1. get the nearest neighbors of :math:`p`
-
-     2. for each pair of :math:`p, p_i` (where :math:`p_i` is a neighbor of :math:`p`, compute the three angular values
-
-     3. bin all the results in an output SPFH histogram
-
-  2. pass 2:
-
-     1. get the nearest neighbors of :math:`p`
-
-     3. use each SPFH of :math:`p` with a weighting scheme to assemble the FPFH of :math:`p`:
-Note
-
-For efficiency reasons, the compute method in FPFHEstimation does not check if the normals contains NaN or infinite values. Passing such values to compute() will result in undefined output. It is advisable to check the normals, at least during the design of the processing chain or when setting the parameters. This can be done by inserting the following code before the call to compute():
-
-for (int i = 0; i < normals->size(); i++)
-{
-  if (!pcl::isFinite<pcl::Normal>((*normals)[i]))
-  {
-    PCL_WARN("normals[%d] is not finite\n", i);
-  }
-}
-In production code, preprocessing steps and parameters should be set so that normals are finite or raise an error.
-
-Speeding FPFH with OpenMP
-For the speed-savvy users, PCL provides an additional implementation of FPFH estimation which uses multi-core/multi-threaded paradigms using OpenMP to speed the computation. The name of the class is pcl::FPFHEstimationOMP, and its API is 100% compatible to the single-threaded pcl::FPFHEstimation, which makes it suitable as a drop-in replacement. On a system with 8 cores, you should get anything between 6-8 times faster computation times.
-
- 
-         
-        */
-        
+        // Adapted to deal with normals that might face inwards or outwards.
+        // Try both directions, and select largest value (as presumably better to discriminate).
         private void computeAngles (Vector ps, Vector ns, Vector pt, Vector nt, out float alpha, out float phi, out float theta)
         {
             Vector3 psv = new Vector3 (ps[0], ps[1], ps[2]);
             Vector3 ptv = new Vector3 (pt[0], pt[1], pt[2]);
             Vector3 ntv = new Vector3 (nt[0], nt[1], nt[2]).normalized;
+            Vector3 ntvalt = -ntv;
             Vector3 u = new Vector3 (ns[0], ns[1], ns[2]).normalized;
+            Vector3 ualt = -u;
             Vector3 v = Vector3.Cross (u, (ptv - psv).normalized);
+            Vector3 valt = Vector3.Cross (-u, (ptv - psv).normalized);
             Vector3 w = Vector3.Cross (u, v);
+            Vector3 walt = Vector3.Cross (-u, v);
             float d = (ptv - psv).magnitude;
-            alpha = Vector3.Dot (v, ntv);
-            phi = Vector3.Dot (u, (ptv - psv) / d);
+            alpha = Mathf.Max (Vector3.Dot (v, ntv), Vector3.Dot (v, ntvalt), Vector3.Dot (valt, ntv), Vector3.Dot (valt, ntvalt));
+            phi = Mathf.Max (Vector3.Dot (u, (ptv - psv) / d), Vector3.Dot (ualt, (ptv - psv) / d));
 //             Debug.Log ("D " + d + " " + u + " " + new Vector3 (ns[0], ns[1], ns[2]));
-            theta = Mathf.Atan2 (Vector3.Dot (w, ntv), Vector3.Dot (u, ntv));
+            float thetad = Mathf.Max (Vector3.Dot (w, ntv), Vector3.Dot (w, ntvalt), Vector3.Dot (walt, ntv), Vector3.Dot (walt, ntvalt));
+            float thetan = Mathf.Max (Vector3.Dot (u, ntv), Vector3.Dot (u, ntvalt), Vector3.Dot (ualt, ntv), Vector3.Dot (ualt, ntvalt));
+            theta = Mathf.Atan2 (thetad, thetan);
         }
         
         // Also from chapter 4 of: @PhDThesis{RusuDoctoralDissertation, author = {Radu Bogdan Rusu}, title = {Semantic 3D Object Maps for Everyday Manipulation in Human Living Environments}, school = {Computer Science department, Technische Universitaet Muenchen, Germany}, year = {2009}, month = {October} }
@@ -277,8 +178,6 @@ For the speed-savvy users, PCL provides an additional implementation of FPFH est
                 }
 
             }
-            
-            // Make sure normals face a consistent direction.
             
             // Point feature histograms: https://pcl.readthedocs.io/projects/tutorials/en/latest/pfh_estimation.html#pfh-estimation
             Feature spfh = new Feature ();
