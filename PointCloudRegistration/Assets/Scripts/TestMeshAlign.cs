@@ -8,6 +8,8 @@ public class TestMeshAlign : MonoBehaviour
     
     public GameObject cloudTemplate;
     
+    public int pointCloudSize = 100;
+    
     private List <Vector3> extractRandomCloud (int n, bool scramble)
     {
         List <Vector3> p = new List <Vector3> ();
@@ -48,26 +50,20 @@ public class TestMeshAlign : MonoBehaviour
     
     void Start()
     {
-        List <Vector3> p1 = extractRandomCloud (40000, false);
-        List <Vector3> p2 = extractRandomCloud (50000, true);
+        List <Vector3> p1 = extractRandomCloud (pointCloudSize, false);
+        List <Vector3> p2 = extractRandomCloud (pointCloudSize, true);
         
         displayCloud (p1);
         displayCloud (p2);
         
-        fgr.CApp app = new fgr.CApp ();
-        app.AddFeature (p1);
-        app.AddFeature (p2);
-        app.NormalizePoints();
-        app.AdvancedMatching();
-        app.OptimizePairwise(true);
-        app.WriteTrans ("Assets/cloudoutput.txt");
+        FastGlobalRegistration fgr = new FastGlobalRegistration ();
+        fgr.AddFeature (p1);
+        fgr.AddFeature (p2);
+        fgr.NormalizePoints();
+        fgr.AdvancedMatching();
+        fgr.OptimizePairwise(true);
 
-        List <Vector3> p3 = app.GetTransformedPoints (p1);
+        List <Vector3> p3 = fgr.GetTransformedPoints (p2);
         displayCloud (p3);
-    }
-
-    void Update()
-    {
-        
     }
 }

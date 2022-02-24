@@ -308,7 +308,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1707767276}
-  - component: {fileID: 1707767275}
   - component: {fileID: 1707767277}
   m_Layer: 0
   m_Name: PointCloudRegistration
@@ -317,25 +316,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &1707767275
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1707767274}
-  m_Enabled: 0
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 6b46d44e6838ac8019346b9e9686c350, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  feature_01: Assets/ThirdParty/FastGlobal/dataset/pairwise_noise_xyz_level_02_01_rot_05/features_0000.bin
-  feature_02: Assets/ThirdParty/FastGlobal/dataset/pairwise_noise_xyz_level_02_01_rot_05/features_0001.bin
-  transform_output_txt: Assets/output.txt
-  evaluation: 1
-  transform_gth_log: Assets/ThirdParty/FastGlobal/dataset/pairwise_noise_xyz_level_01_01_rot_05/gt.log
-  transform_est_txt: Assets/output.txt
-  eval_txt: Assets/output_eval.txt
 --- !u!4 &1707767276
 Transform:
   m_ObjectHideFlags: 0
@@ -364,6 +344,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   pointCloudSource: {fileID: 6638857707228298882}
   cloudTemplate: {fileID: 1278024532747801079, guid: f9df28a3ca1a29a9c9bb417a516f89a7, type: 3}
+  pointCloudSize: 10000
 --- !u!1 &738860591775012083
 GameObject:
   m_ObjectHideFlags: 0
