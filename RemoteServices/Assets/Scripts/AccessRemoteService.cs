@@ -6,6 +6,7 @@ using System.Net;
 using System.Net.Sockets;
 
 using TMPro;
+using System.Threading.Tasks;
 
 public class AccessRemoteService : MonoBehaviour
 {
@@ -16,42 +17,53 @@ public class AccessRemoteService : MonoBehaviour
     public int serverPort = 8800;
     
     private int blockSize = 1024;
-    private Socket commSocket = null;
+    private TcpClient client = null;
     
-    private byte [] sendAndReceive (byte [] data)
+    private async Task<byte []> sendAndReceive (byte [] data)
     {
-        if (commSocket == null)
+        if (client == null)
         {
-            IPAddress[] addresslist = Dns.GetHostAddresses (serverName);
-            commSocket = new Socket (AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-            commSocket.Connect (addresslist[0], serverPort);
+            IPAddress[] addresslist = await Dns.GetHostAddressesAsync (serverName);
+            Debug.Log("Addresses: " + addresslist);
+            client = new TcpClient();
+            await client.ConnectAsync (addresslist[0], serverPort);
         }
         
         byte [] result = new byte [blockSize];
-        if (commSocket != null)
+        if (client != null)
         {
-            commSocket.Send (data);
-            SocketError errorCode;
-            int amountReceived = commSocket.Receive (result, 0, blockSize, SocketFlags.None, out errorCode);
-            Debug.Log ("Received: " + amountReceived + " " + errorCode);
+            NetworkStream stream = client.GetStream();
+            await stream.WriteAsync (data);
+            int amountReceived = await stream.ReadAsync (result);
+            Debug.Log ("Received: " + amountReceived);
         }
         
         return result;
     }
-    
-    public void transmitToServer ()
+
+    public void transmitToServer()
     {
+        doTransmit();
+    }
+
+    private async Task doTransmit ()
+    { 
         Debug.Log ("Transmitting data: " + inputTextField.text);
         
         // The actual interactions with the remote server will use byte arrays,
         // to allow any form of data to interchanged. This method converts to/from
         // text for demonstration/testing purposes.
         byte [] data = Encoding.ASCII.GetBytes (inputTextField.text);
-        byte [] result = sendAndReceive (data);
+        byte [] result = await sendAndReceive (data);
         
         string resultString = Encoding.ASCII.GetString (result);
         outputTextField.text = resultString;
         
         Debug.Log ("Received result: " + outputTextField.text);
+    }
+
+    private void Update()
+    {
+        Debug.Log("Main thread running");
     }
 }
