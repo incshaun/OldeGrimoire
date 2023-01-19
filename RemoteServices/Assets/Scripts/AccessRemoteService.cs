@@ -44,6 +44,7 @@ public class AccessRemoteService : MonoBehaviour
     {
         if (BitConverter.IsLittleEndian)
         {
+            //Debug.Log ("Lit en" + b[0] + " " + b.Length);
             Array.Reverse(b);
         }
         int i = BitConverter.ToInt32(b, 0);
@@ -137,6 +138,7 @@ public class AccessRemoteService : MonoBehaviour
                     await stream.WriteAsync(data);
                     //Debug.Log("Sent");
                     int length = await readInt(stream);
+//                     Debug.Log ("Expect: " + length);
                     result = await readAmount(stream, length);
                     //int amountReceived = await stream.ReadAsync (result);
                     //Debug.Log ("Received: " + amountReceived);
@@ -281,8 +283,18 @@ public class AccessRemoteService : MonoBehaviour
         audioRecording = true;
     }
 
-    private void transmitAsRequired ()
+    // Since requests to the server are sequentially over a single stream,
+    // we have to wait until the current request is complete before sending
+    // the next, or the stream will get messed up with interleaved requests.
+    private Task runningTask = null;
+    private async Task transmitAsRequired ()
     {
+        if (runningTask != null)
+        {
+            await Task.WhenAny (runningTask);
+            runningTask = null;
+        }
+        
         try
         {
             //Debug.Log("Recording at position: " + Microphone.GetPosition(Microphone.devices[0]));
@@ -313,7 +325,7 @@ public class AccessRemoteService : MonoBehaviour
                 // The actual interactions with the remote server will use byte arrays,
                 // to allow any form of data to interchanged. This method converts to/from
                 // text for demonstration/testing purposes.
-                _ = sendAndUpdate(data);
+                runningTask = sendAndUpdate(data);
             }
         }
         catch (Exception e)
@@ -352,7 +364,7 @@ public class AccessRemoteService : MonoBehaviour
         //Debug.Log("Main thread running");
         if (audioRecording)
         {
-            transmitAsRequired();
+            _ = transmitAsRequired();
         }
     }
 }
