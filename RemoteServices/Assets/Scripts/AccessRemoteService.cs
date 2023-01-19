@@ -18,7 +18,7 @@ public class AccessRemoteService : MonoBehaviour
     public string serverName = "192.168.1.150";
     public int serverPort = 8800;
     
-    private int blockSize = 1024;
+    //private int blockSize = 1024;
     private TcpClient client = null;
 
     public static byte[] networkShortToByte(short s)
@@ -40,32 +40,116 @@ public class AccessRemoteService : MonoBehaviour
         return b;
     }
 
-    private async Task<byte []> sendAndReceive (byte [] data)
+    public static int hostByteToUInt (byte [] b)
     {
-        if (client == null)
+        if (BitConverter.IsLittleEndian)
         {
-            IPAddress[] addresslist = await Dns.GetHostAddressesAsync (serverName);
-            Debug.Log("Addresses: " + addresslist);
-            client = new TcpClient();
-            await client.ConnectAsync (addresslist[0], serverPort);
-            Debug.Log("Connected");
+            Array.Reverse(b);
         }
+        int i = BitConverter.ToInt32(b, 0);
+        return i;
+    }
 
-        byte [] result = new byte [blockSize];
+    public static async Task<byte []> readAmount (NetworkStream stream, int amount)
+    {
+        try
+        {
+            byte[] buffer = new byte[amount];
+            int received = 0;
+            while (received < amount)
+            {
+                int amountReceived = await stream.ReadAsync(buffer, received, amount - received);
+                received += amountReceived;
+            }
+            return buffer;
+        }
+        catch (Exception e)
+        {
+            Debug.Log("Error reading data");
+            return null;
+        }
+    }
+
+    public static async Task<int> readInt (NetworkStream stream)
+    {
+        byte[] buffer = await readAmount(stream, 4);
+        if ((buffer != null) && (buffer.Length == 4))
+        {
+            return hostByteToUInt(buffer);
+        }
+        else
+        {
+            throw new SystemException("Unable to read an int");
+        }
+    }
+
+    void OnApplicationQuit()
+    {
         if (client != null)
         {
-            //Debug.Log("Sending");
-            NetworkStream stream = client.GetStream();
-
-            // Send a header with the length of the next block in the stream.
-            await stream.WriteAsync(networkUIntToByte((uint) data.Length));
-
-            await stream.WriteAsync (data);
-            //Debug.Log("Sent");
-            int amountReceived = await stream.ReadAsync (result);
-            //Debug.Log ("Received: " + amountReceived);
+            client.Close();
         }
-        
+    }
+
+    private async Task<byte []> sendAndReceive (byte [] data)
+    {
+        byte[] result = null;
+
+        try
+        {
+            if (client == null)
+            {
+                IPAddress[] addresslist = await Dns.GetHostAddressesAsync(serverName);
+                //Debug.Log("Addresses: " + addresslist);
+                try
+                {
+                    client = new TcpClient();
+                    await client.ConnectAsync(addresslist[0], serverPort);
+                    Debug.Log("Connected");
+                }
+                catch (SocketException e)
+                {
+                    Debug.Log("Could not connect: check that the server is actually running.");
+                    client = null;
+                }
+            }
+
+            if ((client != null) && (client.Connected))
+            {
+                //Debug.Log("Sending");
+                NetworkStream stream = null;
+                try
+                {
+                    stream = client.GetStream();
+                }
+                catch (InvalidOperationException e)
+                {
+                    Debug.Log("Could not get stream: check that the server is actually running.");
+                    stream = null;
+                    client = null;
+                }
+
+                if (stream != null)
+                {
+                    // Send a header with the length of the next block in the stream.
+                    await stream.WriteAsync(networkUIntToByte((uint)data.Length));
+
+                    await stream.WriteAsync(data);
+                    //Debug.Log("Sent");
+                    int length = await readInt(stream);
+                    result = await readAmount(stream, length);
+                    //int amountReceived = await stream.ReadAsync (result);
+                    //Debug.Log ("Received: " + amountReceived);
+                }
+            }
+        }
+        catch (Exception e)
+        {
+            Debug.Log("Exception in sendAndReceive: " + e);
+            client = null;
+            return null;
+        }
+
         return result;
     }
 
@@ -189,52 +273,52 @@ public class AccessRemoteService : MonoBehaviour
     private int transmissionThreshold;
     private void doTransmitAudioStream()
     {
-        try
-        {
-            Debug.Log("Starting microphone: " + Microphone.devices[0]);
-            audioClip = Microphone.Start(Microphone.devices[0], true, recordDuration, recordRate);
-            lastRecordPosition = 0;
-            recordBufferLength = recordDuration * recordRate;
-            transmissionThreshold = transmissionDuration * recordRate;
-            audioRecording = true;
-        }
-        catch (Exception e)
-        {
-            Debug.Log("Something bad: " + e);
-        }
+        audioClip = Microphone.Start(Microphone.devices[0], true, recordDuration, recordRate);
+        Debug.Log("Starting microphone: " + Microphone.devices[0] + " " + audioClip);
+        lastRecordPosition = 0;
+        recordBufferLength = recordDuration * recordRate;
+        transmissionThreshold = transmissionDuration * recordRate;
+        audioRecording = true;
     }
 
     private void transmitAsRequired ()
     {
-        //Debug.Log("Recording at position: " + Microphone.GetPosition (Microphone.devices[0]));
-        int currentPosition = Microphone.GetPosition(Microphone.devices[0]);
-        if ((currentPosition + recordBufferLength - lastRecordPosition) % recordBufferLength >= transmissionThreshold)
+        try
         {
-//            Debug.Log("Transmitting: " + transmissionThreshold + " " + lastRecordPosition + " -> " + currentPosition);
-            lastRecordPosition = (lastRecordPosition + transmissionThreshold) % recordBufferLength;
-
-            var samples = new float[transmissionThreshold];
-            audioClip.GetData(samples, lastRecordPosition);
-//            Debug.Log("Transmitting audio: " + samples.Length);
-            byte[] data = new byte[2 * samples.Length];
-            int rescaleFactor = 32767; //to convert float to Int16
-            for (int i = 0; i < samples.Length; i++)
+            //Debug.Log("Recording at position: " + Microphone.GetPosition(Microphone.devices[0]));
+            int currentPosition = Microphone.GetPosition(Microphone.devices[0]);
+            if ((currentPosition + recordBufferLength - lastRecordPosition) % recordBufferLength >= transmissionThreshold)
             {
-                short v = (short)(samples[i] * rescaleFactor);
-                // Wav byte order is opposite network.
-                byte[] b = BitConverter.GetBytes(v);
-                if (!BitConverter.IsLittleEndian)
-                {
-                    Array.Reverse(b);
-                }
-                b.CopyTo(data, i * 2);
-            }
-//            Debug.Log("Transmitting data: " + data.Length);
+                //            Debug.Log("Transmitting: " + transmissionThreshold + " " + lastRecordPosition + " -> " + currentPosition);
+                lastRecordPosition = (lastRecordPosition + transmissionThreshold) % recordBufferLength;
 
-            // The actual interactions with the remote server will use byte arrays,
-            // to allow any form of data to interchanged. This method converts to/from
-            // text for demonstration/testing purposes.
-            _ = sendAndUpdate (data);
+                var samples = new float[transmissionThreshold];
+                audioClip.GetData(samples, lastRecordPosition);
+                //            Debug.Log("Transmitting audio: " + samples.Length);
+                byte[] data = new byte[2 * samples.Length];
+                int rescaleFactor = 32767; //to convert float to Int16
+                for (int i = 0; i < samples.Length; i++)
+                {
+                    short v = (short)(samples[i] * rescaleFactor);
+                    // Wav byte order is opposite network.
+                    byte[] b = BitConverter.GetBytes(v);
+                    if (!BitConverter.IsLittleEndian)
+                    {
+                        Array.Reverse(b);
+                    }
+                    b.CopyTo(data, i * 2);
+                }
+                //            Debug.Log("Transmitting data: " + data.Length);
+
+                // The actual interactions with the remote server will use byte arrays,
+                // to allow any form of data to interchanged. This method converts to/from
+                // text for demonstration/testing purposes.
+                _ = sendAndUpdate(data);
+            }
+        }
+        catch (Exception e)
+        {
+            Debug.Log("Something bad: " + e);
         }
     }
 
@@ -245,12 +329,22 @@ public class AccessRemoteService : MonoBehaviour
 
     private async Task sendAndUpdate(byte[] data)
     {
-        byte[] result = await sendAndReceive(data);
+        try
+        {
+            byte[] result = await sendAndReceive(data);
 
-        string resultString = Encoding.ASCII.GetString(result);
-        addOutputLine (resultString);
+            if ((result != null) && (result.Length > 0))
+            {
+                string resultString = Encoding.ASCII.GetString(result);
+                addOutputLine(resultString);
 
-        Debug.Log("Received result: " + resultString);
+                Debug.Log("Received result: " + resultString);
+            }
+        }
+        catch (Exception e)
+        {
+            Debug.Log("Send and update bad: " + e);
+        }
     }
 
     private void Update()
