@@ -8,6 +8,7 @@ using System.Net.Sockets;
 
 using TMPro;
 using System.Threading.Tasks;
+using System.Linq;
 
 public class AccessRemoteService : MonoBehaviour
 {
@@ -53,55 +54,72 @@ public class AccessRemoteService : MonoBehaviour
         byte [] result = new byte [blockSize];
         if (client != null)
         {
-            Debug.Log("Sending");
+            //Debug.Log("Sending");
             NetworkStream stream = client.GetStream();
 
             // Send a header with the length of the next block in the stream.
             await stream.WriteAsync(networkUIntToByte((uint) data.Length));
 
             await stream.WriteAsync (data);
-            Debug.Log("Sent");
+            //Debug.Log("Sent");
             int amountReceived = await stream.ReadAsync (result);
-            Debug.Log ("Received: " + amountReceived);
+            //Debug.Log ("Received: " + amountReceived);
         }
         
         return result;
     }
 
-    private int recordDuration = 5;
-    private AudioClip audioClip = null;
+    // Provide a way of populating the output text, with a set number of lines.
+    private const int numberOutputLines = 4;
+    private string[] outputLines = new string [numberOutputLines];
+    private int currentOutputLine = 0;
+   private void addOutputLine (string line)
+   {
+        // Control characters interfere with string appending. https://stackoverflow.com/questions/15259275/removing-hidden-characters-from-within-strings/15259355#15259355
+        line = new string(line.Where(c => !char.IsControl(c)).ToArray());
 
-    private IEnumerator recordAudio()
-    {
-        // Set the microphone recording. Service requires 16 kHz sampling.
-        audioClip = Microphone.Start(null, false, recordDuration, 16000);
-        yield return new WaitForSeconds(recordDuration);
-        Microphone.End(null);
-
-        doPlayback();
-        Debug.Log("Channels " + audioClip.channels + " Samples " + audioClip.samples + "Rate " + audioClip.frequency);
-    }
-
-    public void doRecord ()
-    {
-        StartCoroutine(recordAudio());
-    }
-
-    public void doPlayback ()
-    {
-        // Play the recording back, to validate it was recorded correctly.
-        AudioSource audioSource = GetComponent<AudioSource>();
-        if ((audioClip != null) && (audioSource != null))
+        outputLines[currentOutputLine] = line;
+        currentOutputLine = (currentOutputLine + 1) % numberOutputLines;
+        string result = "";
+        for (int i = 0; i < numberOutputLines; i++)
         {
-            audioSource.clip = audioClip;
-            audioSource.Play();
+            result += outputLines[(currentOutputLine + i) % numberOutputLines];
         }
+        outputTextField.text = result;
     }
+
+    //private IEnumerator recordAudio()
+    //{
+    //    // Set the microphone recording. Service requires 16 kHz sampling.
+    //    audioClip = Microphone.Start(null, false, recordDuration, 16000);
+    //    yield return new WaitForSeconds(recordDuration);
+    //    Microphone.End(null);
+
+    //    doPlayback();
+    //    Debug.Log("Channels " + audioClip.channels + " Samples " + audioClip.samples + "Rate " + audioClip.frequency);
+    //}
+
+    //public void doRecord ()
+    //{
+    //    StartCoroutine(recordAudio());
+    //}
+
+    //public void doPlayback ()
+    //{
+    //    // Play the recording back, to validate it was recorded correctly.
+    //    AudioSource audioSource = GetComponent<AudioSource>();
+    //    if ((audioClip != null) && (audioSource != null))
+    //    {
+    //        audioSource.clip = audioClip;
+    //        audioSource.Play();
+    //    }
+    //}
 
     public void transmitToServer()
     {
         //doTransmitText();
-        doTransmitAudio();
+        //doTransmitAudio();
+        //doTransmitAudioStream();
     }
 
     private async Task doTransmitText()
@@ -120,49 +138,127 @@ public class AccessRemoteService : MonoBehaviour
         Debug.Log("Received result: " + outputTextField.text);
     }
 
-    private async Task doTransmitAudio ()
+    //private async Task doTransmitAudio ()
+    //{
+    //    if (audioClip != null)
+    //    {
+    //        try
+    //        {
+    //            var samples = new float[audioClip.samples];
+    //            audioClip.GetData(samples, 0);
+    //            Debug.Log("Transmitting audio: " + samples.Length);
+    //            byte[] data = new byte[2 * samples.Length];
+    //            int rescaleFactor = 32767; //to convert float to Int16
+    //            for (int i = 0; i < samples.Length; i++)
+    //            {
+    //                short v = (short)(samples[i] * rescaleFactor);
+    //                // Wav byte order is opposite network.
+    //                byte[] b = BitConverter.GetBytes(v);
+    //                if (!BitConverter.IsLittleEndian)
+    //                {
+    //                    Array.Reverse(b);
+    //                }
+    //                b.CopyTo(data, i * 2);
+    //            }
+    //            Debug.Log("Transmitting data: " + data.Length);
+
+    //            // The actual interactions with the remote server will use byte arrays,
+    //            // to allow any form of data to interchanged. This method converts to/from
+    //            // text for demonstration/testing purposes.
+    //            byte[] result = await sendAndReceive(data);
+
+    //            string resultString = Encoding.ASCII.GetString(result);
+    //            outputTextField.text = resultString;
+
+    //            Debug.Log("Received result: " + outputTextField.text);
+    //        }
+    //        catch (Exception e)
+    //        {
+    //            Debug.Log("Something bad: " + e);
+    //        }
+    //    }
+    //}
+
+    private AudioClip audioClip = null;
+    private bool audioRecording = false;
+    private int lastRecordPosition;
+    private int recordBufferLength;
+    private int recordDuration = 2; // seconds. Should be longer than the transmissionDuration. Any extra adds to latency, but improves resiliance to delays.
+    private int transmissionDuration = 1; // seconds.
+    private int recordRate = 16000; // samples per second.
+    private int transmissionThreshold;
+    private void doTransmitAudioStream()
     {
-        if (audioClip != null)
+        try
         {
-            try
-            {
-                var samples = new float[audioClip.samples];
-                audioClip.GetData(samples, 0);
-                Debug.Log("Transmitting audio: " + samples.Length);
-                byte[] data = new byte[2 * samples.Length];
-                int rescaleFactor = 32767; //to convert float to Int16
-                for (int i = 0; i < samples.Length; i++)
-                {
-                    short v = (short)(samples[i] * rescaleFactor);
-                    // Wav byte order is opposite network.
-                    byte[] b = BitConverter.GetBytes(v);
-                    if (!BitConverter.IsLittleEndian)
-                    {
-                        Array.Reverse(b);
-                    }
-                    b.CopyTo(data, i * 2);
-                }
-                Debug.Log("Transmitting data: " + data.Length);
-
-                // The actual interactions with the remote server will use byte arrays,
-                // to allow any form of data to interchanged. This method converts to/from
-                // text for demonstration/testing purposes.
-                byte[] result = await sendAndReceive(data);
-
-                string resultString = Encoding.ASCII.GetString(result);
-                outputTextField.text = resultString;
-
-                Debug.Log("Received result: " + outputTextField.text);
-            }
-            catch (Exception e)
-            {
-                Debug.Log("Something bad: " + e);
-            }
+            Debug.Log("Starting microphone: " + Microphone.devices[0]);
+            audioClip = Microphone.Start(Microphone.devices[0], true, recordDuration, recordRate);
+            lastRecordPosition = 0;
+            recordBufferLength = recordDuration * recordRate;
+            transmissionThreshold = transmissionDuration * recordRate;
+            audioRecording = true;
         }
+        catch (Exception e)
+        {
+            Debug.Log("Something bad: " + e);
+        }
+    }
+
+    private void transmitAsRequired ()
+    {
+        //Debug.Log("Recording at position: " + Microphone.GetPosition (Microphone.devices[0]));
+        int currentPosition = Microphone.GetPosition(Microphone.devices[0]);
+        if ((currentPosition + recordBufferLength - lastRecordPosition) % recordBufferLength >= transmissionThreshold)
+        {
+//            Debug.Log("Transmitting: " + transmissionThreshold + " " + lastRecordPosition + " -> " + currentPosition);
+            lastRecordPosition = (lastRecordPosition + transmissionThreshold) % recordBufferLength;
+
+            var samples = new float[transmissionThreshold];
+            audioClip.GetData(samples, lastRecordPosition);
+//            Debug.Log("Transmitting audio: " + samples.Length);
+            byte[] data = new byte[2 * samples.Length];
+            int rescaleFactor = 32767; //to convert float to Int16
+            for (int i = 0; i < samples.Length; i++)
+            {
+                short v = (short)(samples[i] * rescaleFactor);
+                // Wav byte order is opposite network.
+                byte[] b = BitConverter.GetBytes(v);
+                if (!BitConverter.IsLittleEndian)
+                {
+                    Array.Reverse(b);
+                }
+                b.CopyTo(data, i * 2);
+            }
+//            Debug.Log("Transmitting data: " + data.Length);
+
+            // The actual interactions with the remote server will use byte arrays,
+            // to allow any form of data to interchanged. This method converts to/from
+            // text for demonstration/testing purposes.
+            _ = sendAndUpdate (data);
+        }
+    }
+
+    public void speechRecognitionService()
+    {
+        doTransmitAudioStream();
+    }
+
+    private async Task sendAndUpdate(byte[] data)
+    {
+        byte[] result = await sendAndReceive(data);
+
+        string resultString = Encoding.ASCII.GetString(result);
+        addOutputLine (resultString);
+
+        Debug.Log("Received result: " + resultString);
     }
 
     private void Update()
     {
         //Debug.Log("Main thread running");
+        if (audioRecording)
+        {
+            transmitAsRequired();
+        }
     }
 }

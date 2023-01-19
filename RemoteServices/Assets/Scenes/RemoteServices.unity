@@ -367,7 +367,7 @@ MonoBehaviour:
       m_Calls:
       - m_Target: {fileID: 1451736745}
         m_TargetAssemblyTypeName: AccessRemoteService, Assembly-CSharp
-        m_MethodName: doRecord
+        m_MethodName: transmitToServer
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
