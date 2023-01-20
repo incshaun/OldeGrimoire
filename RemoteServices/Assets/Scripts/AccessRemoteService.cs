@@ -52,33 +52,36 @@ public class AccessRemoteService : MonoBehaviour
     //private int blockSize = 1024;
 //     private TcpClient client = null;
 
-    public static byte[] networkShortToByte(short s)
+    public static void networkShortToByte(short s, byte[] dest, int offset = 0)
     {
         byte[] b = BitConverter.GetBytes(s);
         if (BitConverter.IsLittleEndian)
         {
             Array.Reverse(b);
         }
-        return b;
+        Buffer.BlockCopy (b, 0, dest, offset, 2);
     }
-    public static byte[] networkUIntToByte(uint i)
+    public static void networkUIntToByte(uint i, byte[] dest, int offset = 0)
     {
         byte[] b = BitConverter.GetBytes(i);
         if (BitConverter.IsLittleEndian)
         {
             Array.Reverse(b);
         }
-        return b;
+        Buffer.BlockCopy (b, 0, dest, offset, 4);
     }
 
-    public static int hostByteToUInt (byte [] b)
+    public static int hostByteToUInt (byte [] bytes, int offset = 0)
     {
+        byte [] b = new byte [4];
+        Buffer.BlockCopy (bytes, offset, b, 0, 4);
+        
         if (BitConverter.IsLittleEndian)
         {
             //Debug.Log ("Lit en" + b[0] + " " + b.Length);
             Array.Reverse(b);
         }
-        int i = BitConverter.ToInt32(b, 0);
+        int i = BitConverter.ToInt32(b);
         return i;
     }
 
@@ -123,7 +126,7 @@ public class AccessRemoteService : MonoBehaviour
         }
     }
 
-    private async Task<byte []> sendAndReceive (ServiceConnection service, ServiceType serviceType, byte [] header, byte [] data)
+    private async Task<(byte [], byte [])> sendAndReceive (ServiceConnection service, ServiceType serviceType, byte [] header, byte [] data)
     {
         // Messages on a single service are queued, so multiple threads sending a request
         // and waiting for a response have to do this sequentially. Separate services have
@@ -177,20 +180,20 @@ public class AccessRemoteService : MonoBehaviour
 
                 if (stream != null)
                 {
-                    byte [] bint;
+                    byte [] bint = new byte [4];
                     
                     // Send a header with the length of the next block in the stream.
                     // 1. Service type
-                    bint = networkUIntToByte((uint)serviceType);
+                    networkUIntToByte((uint)serviceType, bint);
                     await stream.WriteAsync(bint, 0, bint.Length);
                     
                     // 2. Header
-                    bint = networkUIntToByte((uint)header.Length);
+                    networkUIntToByte((uint)header.Length, bint);
                     await stream.WriteAsync(bint, 0, bint.Length);
                     await stream.WriteAsync(header, 0, header.Length);
                     
                     // 3. Data
-                    bint = networkUIntToByte((uint)data.Length);
+                    networkUIntToByte((uint)data.Length, bint);
                     await stream.WriteAsync(bint, 0, bint.Length);
                     await stream.WriteAsync(data, 0, data.Length);
                     
@@ -218,7 +221,7 @@ public class AccessRemoteService : MonoBehaviour
         service.locked = false;
         service.connectionMutex.Release ();
         
-        return resultData;
+        return (resultHeader, resultData);
     }
 
     // Provide a way of populating the output text, with a set number of lines.
@@ -346,14 +349,24 @@ public class AccessRemoteService : MonoBehaviour
         }
 
         byte [] header = new byte [0];
-        byte[] result = await sendAndReceive(speechSynthService, ServiceType.SpeechSynthesis, header, data);
+        
+        byte [] resultHeader;
+        byte[] resultData;
+        (resultHeader, resultData) = await sendAndReceive(speechSynthService, ServiceType.SpeechSynthesis, header, data);
 
-        float [] vals = new float [result.Length / 2];
+        // Parse the returned header for audio parameters.
+        int channels = hostByteToUInt (resultHeader, 0);        
+        int width = hostByteToUInt (resultHeader, 4);        
+        int rate = hostByteToUInt (resultHeader, 8);        
+        
+        Debug.Assert (width == 2);
+
+        float [] vals = new float [resultData.Length / 2];
         float rescaleFactor = 32767.0f; //to convert float to Int16
         for (int i = 0; i < vals.Length; i++)
         {
             byte [] b = new byte [2];
-            Buffer.BlockCopy (result, i * 2, b, 0, 2);
+            Buffer.BlockCopy (resultData, i * 2, b, 0, 2);
             if (!BitConverter.IsLittleEndian)
             {
                 Array.Reverse(b);
@@ -362,7 +375,7 @@ public class AccessRemoteService : MonoBehaviour
             vals[i] = v / rescaleFactor;
         }
         
-        AudioClip audio = AudioClip.Create ("speech", vals.Length, 1, 24000, false);
+        AudioClip audio = AudioClip.Create ("speech", vals.Length, channels, rate, false);
         audio.SetData (vals, 0);
        
         AudioSource audioSource = GetComponent<AudioSource>();
@@ -371,9 +384,9 @@ public class AccessRemoteService : MonoBehaviour
             audioSource.clip = audio;
             audioSource.Play();
         }
-        outputTextField.text = "Received " + result.Length + " bytes";
+        outputTextField.text = "Received " + resultHeader.Length + "+" + resultData.Length + " bytes";
 
-        Debug.Log("Received result: " + outputTextField.text);
+        Debug.Log("Received result: " + outputTextField.text + " - " + channels + " " + width + " " + rate);
     }
     
     private AudioClip audioClip = null;
@@ -417,6 +430,12 @@ public class AccessRemoteService : MonoBehaviour
 
                 var samples = new float[transmissionThreshold];
                 audioClip.GetData(samples, lastRecordPosition);
+                
+                byte [] header = new byte [12];
+                networkUIntToByte ((uint) audioClip.channels, header, 0);
+                networkUIntToByte (2, header, 4); // sample width in bytes.
+                networkUIntToByte ((uint) audioClip.frequency, header, 8);
+                
                 //            Debug.Log("Transmitting audio: " + samples.Length);
                 byte[] data = new byte[2 * samples.Length];
                 int rescaleFactor = 32767; //to convert float to Int16
@@ -436,7 +455,7 @@ public class AccessRemoteService : MonoBehaviour
                 // The actual interactions with the remote server will use byte arrays,
                 // to allow any form of data to interchanged. This method converts to/from
                 // text for demonstration/testing purposes.
-                _ = sendAndUpdate(speechService, data);
+                _ = sendAndUpdate(speechService, header, data);
             }
         }
         catch (Exception e)
@@ -456,16 +475,18 @@ public class AccessRemoteService : MonoBehaviour
         doTransmitAudioStream();
     }
 
-    private async Task sendAndUpdate(ServiceConnection service, byte [] data)
+    private async Task sendAndUpdate(ServiceConnection service, byte [] header, byte [] data)
     {
         try
         {
-            byte [] header = new byte [0];
-            byte[] result = await sendAndReceive(service, ServiceType.SpeechRecognition, header, data);
+            byte [] resultHeader;
+            byte[] resultData;
 
-            if ((result != null) && (result.Length > 0))
+            (resultHeader, resultData) = await sendAndReceive(service, ServiceType.SpeechRecognition, header, data);
+
+            if ((resultData != null) && (resultData.Length > 0))
             {
-                string resultString = Encoding.ASCII.GetString(result);
+                string resultString = Encoding.ASCII.GetString(resultData);
                 addOutputLine(resultString);
 
                 Debug.Log("Received result: " + resultString);

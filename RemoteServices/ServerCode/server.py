@@ -29,18 +29,25 @@ def invokeSpeechRecognition (header, data):
   if speechModel == None:
     speechModel = whisper.load_model("base")
 
-  saveToWav ("my.wav", data)
+  channels = int.from_bytes (header[0:4], byteorder='big', signed=False)
+  samplewidth = int.from_bytes (header[4:8], byteorder='big', signed=False)
+  frequency = int.from_bytes (header[8:12], byteorder='big', signed=False)
+
+  #print ("Audio", channels, samplewidth, frequency)
+
+  saveToWav ("my.wav", data, channels, samplewidth, frequency)
   result = speechModel.transcribe("my.wav")
+  print ("Heard", result["text"])
   resultData = str.encode (result["text"])
   #print(result["text"])
   return b'', resultData
 
 # Write to file, originally as a data transfer mechanism but also a useful debugging step
-def saveToWav (filename, data):
+def saveToWav (filename, data, channels, samplewidth, frequency):
   fl = wave.open (filename, 'wb')
-  fl.setnchannels(1) 
-  fl.setsampwidth(2)
-  fl.setframerate(16000)
+  fl.setnchannels(channels) 
+  fl.setsampwidth(samplewidth)
+  fl.setframerate(frequency)
   fl.writeframesraw (data)
   fl.close()
 
@@ -72,11 +79,15 @@ def invokeSpeechSynthesis (header, data):
   
   fl = wave.open ("synth.wav", 'rb')
   data = fl.readframes (fl.getnframes ())
+  header = b''
+  header += fl.getnchannels ().to_bytes (4, byteorder='big', signed=False)
+  header += fl.getsampwidth ().to_bytes (4, byteorder='big', signed=False)
+  header += fl.getframerate ().to_bytes (4, byteorder='big', signed=False)
   print (fl.getnchannels (), fl.getsampwidth (), fl.getframerate ())
   fl.close()
   
   print ("TTS done")
-  return b'', data
+  return header, data
 
 ###########################################################################
 
@@ -175,7 +186,7 @@ def handleConnection (clientSocket, address):
         writeAmount (clientSocket, resultHeader)
         writeInt (clientSocket, len (resultData))
         writeAmount (clientSocket, resultData)
-        print ("Sent reply", resultData)
+        print ("Sent reply")
     clientSocket.close(  )
     print ("Disconnected:", address, len (activeSockets))
     activeSockets.remove (clientSocket)
