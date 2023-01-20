@@ -48,6 +48,8 @@ def saveToWav (filename, data):
   fl.writeframesraw (data)
   fl.close()
 
+# Speech Recognition
+
 import whisper
 
 speechModel = None
@@ -75,6 +77,36 @@ def readAmount (clientSocket, amount):
   #print ("Buf len: ", len (buf), amount - len (buf))
   return buf
 
+# Speech Synthesis
+sys.path.append('remoteservices/tortoise-tts/tortoise/')
+
+import torch
+import torchaudio
+
+from api import TextToSpeech, MODELS_DIR
+from utils.audio import load_voices
+
+speechSynthModel = None
+def invokeSpeechSynthesis (words):
+  global speechSynthModel
+  
+  if speechSynthModel == None:
+    tts = TextToSpeech(models_dir="remoteservices/tortoise-tts/models")
+    voice_samples, conditioning_latents = load_voices(["train_grace"], extra_voice_dirs=["remoteservices/tortoise-tts/tortoise/voices/"])
+    speechSynthModel = (tts, voice_samples, conditioning_latents)
+
+  print (words)
+  gen, dbg_state = speechSynthModel[0].tts_with_preset(words, k=1, voice_samples=speechSynthModel[1], conditioning_latents=speechSynthModel[2], preset='fast', use_deterministic_seed=259, return_deterministic_state=True, cvvp_amount=0.5)
+  torchaudio.save("synth.wav", gen.squeeze(0).cpu(), 24000, encoding="PCM_S", bits_per_sample=16)
+  
+  fl = wave.open ("synth.wav", 'rb')
+  data = fl.readframes (fl.getnframes ())
+  print (fl.getnchannels (), fl.getsampwidth (), fl.getframerate ())
+  fl.close()
+  
+  print ("TTS done")
+  return data
+
 def writeAmount (clientSocket, data):
   clientSocket.send (data)
 
@@ -95,14 +127,15 @@ def handleConnection (clientSocket, address):
     while True:
         size = readInt (clientSocket)
         receivedData = readAmount (clientSocket, size)
-  #      print ("Received: ", len (receivedData))
+        print ("Received: ", len (receivedData))
         if not receivedData: 
           break
         
-        saveToWav ("my.wav", receivedData)
-        #time.sleep (5)
+        #saveToWav ("my.wav", receivedData)
         
-        result = str.encode (invokeSpeechRecognition ())
+        #result = str.encode (invokeSpeechRecognition ())
+        text = receivedData.decode("utf-8") 
+        result = invokeSpeechSynthesis (text)
         
         writeInt (clientSocket, len (result))
         writeAmount (clientSocket, result)
@@ -118,3 +151,4 @@ def handleConnection (clientSocket, address):
 
 server ()
 #invokeSpeechRecognition ()
+#invokeSpeechSynthesis ()

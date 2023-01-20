@@ -306,7 +306,51 @@ public class AccessRemoteService : MonoBehaviour
     //        }
     //    }
     //}
+    
+    public void doSpeechSynthesis ()
+    {
+        byte[] data = Encoding.ASCII.GetBytes(inputTextField.text);
+        _ = speechSynthesisService (data);
+    }
 
+    private ServiceConnection speechSynthService = null; // run a single connection for speech services.
+    public async Task speechSynthesisService(byte [] data)
+    {
+        if (speechSynthService == null)
+        {
+            speechSynthService = new ServiceConnection ();
+        }
+        
+        byte[] result = await sendAndReceive(speechSynthService, data);
+
+        float [] vals = new float [result.Length / 2];
+        float rescaleFactor = 32767.0f; //to convert float to Int16
+        for (int i = 0; i < vals.Length; i++)
+        {
+            byte [] b = new byte [2];
+            Buffer.BlockCopy (result, i * 2, b, 0, 2);
+            if (!BitConverter.IsLittleEndian)
+            {
+                Array.Reverse(b);
+            }
+            short v = BitConverter.ToInt16 (b);
+            vals[i] = v / rescaleFactor;
+        }
+        
+        AudioClip audio = AudioClip.Create ("speech", vals.Length, 1, 24000, false);
+        audio.SetData (vals, 0);
+       
+        AudioSource audioSource = GetComponent<AudioSource>();
+        if ((audio != null) && (audioSource != null))
+        {
+            audioSource.clip = audio;
+            audioSource.Play();
+        }
+        outputTextField.text = "Received " + result.Length + " bytes";
+
+        Debug.Log("Received result: " + outputTextField.text);
+    }
+    
     private AudioClip audioClip = null;
     private bool audioRecording = false;
     private int lastRecordPosition;
