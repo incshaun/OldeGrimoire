@@ -19,6 +19,12 @@ public class AccessRemoteService : MonoBehaviour
     public string serverName = "192.168.1.150";
     public int serverPort = 8800;
 
+    enum ServiceType 
+    {
+        SpeechRecognition = 10,
+        SpeechSynthesis = 13,
+    }
+    
     private class ServiceConnection
     {
       public TcpClient client = null;
@@ -117,7 +123,7 @@ public class AccessRemoteService : MonoBehaviour
         }
     }
 
-    private async Task<byte []> sendAndReceive (ServiceConnection service, byte [] data)
+    private async Task<byte []> sendAndReceive (ServiceConnection service, ServiceType serviceType, byte [] header, byte [] data)
     {
         // Messages on a single service are queued, so multiple threads sending a request
         // and waiting for a response have to do this sequentially. Separate services have
@@ -132,7 +138,8 @@ public class AccessRemoteService : MonoBehaviour
         await service.connectionMutex.WaitAsync ();
         service.locked = true;
         
-        byte[] result = null;
+        byte[] resultHeader = null;
+        byte[] resultData = null;
 
         try
         {
@@ -170,15 +177,31 @@ public class AccessRemoteService : MonoBehaviour
 
                 if (stream != null)
                 {
+                    byte [] bint;
+                    
                     // Send a header with the length of the next block in the stream.
-                    byte [] bint = networkUIntToByte((uint)data.Length);
+                    // 1. Service type
+                    bint = networkUIntToByte((uint)serviceType);
                     await stream.WriteAsync(bint, 0, bint.Length);
-
+                    
+                    // 2. Header
+                    bint = networkUIntToByte((uint)header.Length);
+                    await stream.WriteAsync(bint, 0, bint.Length);
+                    await stream.WriteAsync(header, 0, header.Length);
+                    
+                    // 3. Data
+                    bint = networkUIntToByte((uint)data.Length);
+                    await stream.WriteAsync(bint, 0, bint.Length);
                     await stream.WriteAsync(data, 0, data.Length);
-                    //Debug.Log("Sent");
-                    int length = await readInt(stream);
-//                     Debug.Log ("Expect: " + length);
-                    result = await readAmount(stream, length);
+                    
+                    // Receive the response, with a header and body.
+                    int length;
+                    // 1. Header
+                    length = await readInt(stream);
+                    resultHeader = await readAmount(stream, length);
+                    // 2. Data
+                    length = await readInt(stream);
+                    resultData = await readAmount(stream, length);
                     //int amountReceived = await stream.ReadAsync (result);
                     //Debug.Log ("Received: " + amountReceived);
                 }
@@ -188,13 +211,14 @@ public class AccessRemoteService : MonoBehaviour
         {
             Debug.Log("Exception in sendAndReceive: " + e);
             service.client = null;
-            result = null;
+            resultHeader = null;
+            resultData = null;
         }
 
         service.locked = false;
         service.connectionMutex.Release ();
         
-        return result;
+        return resultData;
     }
 
     // Provide a way of populating the output text, with a set number of lines.
@@ -320,8 +344,9 @@ public class AccessRemoteService : MonoBehaviour
         {
             speechSynthService = new ServiceConnection ();
         }
-        
-        byte[] result = await sendAndReceive(speechSynthService, data);
+
+        byte [] header = new byte [0];
+        byte[] result = await sendAndReceive(speechSynthService, ServiceType.SpeechSynthesis, header, data);
 
         float [] vals = new float [result.Length / 2];
         float rescaleFactor = 32767.0f; //to convert float to Int16
@@ -435,7 +460,8 @@ public class AccessRemoteService : MonoBehaviour
     {
         try
         {
-            byte[] result = await sendAndReceive(service, data);
+            byte [] header = new byte [0];
+            byte[] result = await sendAndReceive(service, ServiceType.SpeechRecognition, header, data);
 
             if ((result != null) && (result.Length > 0))
             {

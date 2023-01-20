@@ -9,6 +9,82 @@ serverPort = 8800
 maxClients = 2
 blockSize = 512
 
+SERVICETYPESPEECHRECOGNITION = 10
+SERVICETYPESPEECHSYNTHESIS = 13
+
+###########################################################################
+### Service functions
+###########################################################################
+
+###########################################################################
+# Speech Recognition
+###########################################################################
+
+import whisper
+
+speechModel = None
+def invokeSpeechRecognition (header, data):
+  global speechModel
+  
+  if speechModel == None:
+    speechModel = whisper.load_model("base")
+
+  saveToWav ("my.wav", data)
+  result = speechModel.transcribe("my.wav")
+  resultData = str.encode (result["text"])
+  #print(result["text"])
+  return b'', resultData
+
+# Write to file, originally as a data transfer mechanism but also a useful debugging step
+def saveToWav (filename, data):
+  fl = wave.open (filename, 'wb')
+  fl.setnchannels(1) 
+  fl.setsampwidth(2)
+  fl.setframerate(16000)
+  fl.writeframesraw (data)
+  fl.close()
+
+###########################################################################
+# Speech Synthesis
+###########################################################################
+
+sys.path.append('remoteservices/tortoise-tts/tortoise/')
+
+import torch
+import torchaudio
+
+from api import TextToSpeech, MODELS_DIR
+from utils.audio import load_voices
+
+speechSynthModel = None
+def invokeSpeechSynthesis (header, data):
+  global speechSynthModel
+  
+  if speechSynthModel == None:
+    tts = TextToSpeech(models_dir="remoteservices/tortoise-tts/models")
+    voice_samples, conditioning_latents = load_voices(["train_grace"], extra_voice_dirs=["remoteservices/tortoise-tts/tortoise/voices/"])
+    speechSynthModel = (tts, voice_samples, conditioning_latents)
+
+  words = data.decode("utf-8") 
+  print (words)
+  gen, dbg_state = speechSynthModel[0].tts_with_preset(words, k=1, voice_samples=speechSynthModel[1], conditioning_latents=speechSynthModel[2], preset='fast', use_deterministic_seed=259, return_deterministic_state=True, cvvp_amount=0.5)
+  torchaudio.save("synth.wav", gen.squeeze(0).cpu(), 24000, encoding="PCM_S", bits_per_sample=16)
+  
+  fl = wave.open ("synth.wav", 'rb')
+  data = fl.readframes (fl.getnframes ())
+  print (fl.getnchannels (), fl.getsampwidth (), fl.getframerate ())
+  fl.close()
+  
+  print ("TTS done")
+  return b'', data
+
+###########################################################################
+
+services = {
+  SERVICETYPESPEECHRECOGNITION : invokeSpeechRecognition,
+  SERVICETYPESPEECHSYNTHESIS : invokeSpeechSynthesis,
+}
+
 activeSockets = []
 
 def signal_handler(signal, frame):
@@ -40,27 +116,6 @@ def server ():
   finally:
       sock.close(  )
 
-def saveToWav (filename, data):
-  fl = wave.open (filename, 'wb')
-  fl.setnchannels(1) 
-  fl.setsampwidth(2)
-  fl.setframerate(16000)
-  fl.writeframesraw (data)
-  fl.close()
-
-# Speech Recognition
-
-import whisper
-
-speechModel = None
-def invokeSpeechRecognition ():
-  global speechModel
-  
-  if speechModel == None:
-    speechModel = whisper.load_model("base")
-  result = speechModel.transcribe("my.wav")
-  #print(result["text"])
-  return result["text"]
 
 def readAmount (clientSocket, amount):
   buf = bytearray ()
@@ -76,36 +131,6 @@ def readAmount (clientSocket, amount):
       raise e
   #print ("Buf len: ", len (buf), amount - len (buf))
   return buf
-
-# Speech Synthesis
-sys.path.append('remoteservices/tortoise-tts/tortoise/')
-
-import torch
-import torchaudio
-
-from api import TextToSpeech, MODELS_DIR
-from utils.audio import load_voices
-
-speechSynthModel = None
-def invokeSpeechSynthesis (words):
-  global speechSynthModel
-  
-  if speechSynthModel == None:
-    tts = TextToSpeech(models_dir="remoteservices/tortoise-tts/models")
-    voice_samples, conditioning_latents = load_voices(["train_grace"], extra_voice_dirs=["remoteservices/tortoise-tts/tortoise/voices/"])
-    speechSynthModel = (tts, voice_samples, conditioning_latents)
-
-  print (words)
-  gen, dbg_state = speechSynthModel[0].tts_with_preset(words, k=1, voice_samples=speechSynthModel[1], conditioning_latents=speechSynthModel[2], preset='fast', use_deterministic_seed=259, return_deterministic_state=True, cvvp_amount=0.5)
-  torchaudio.save("synth.wav", gen.squeeze(0).cpu(), 24000, encoding="PCM_S", bits_per_sample=16)
-  
-  fl = wave.open ("synth.wav", 'rb')
-  data = fl.readframes (fl.getnframes ())
-  print (fl.getnchannels (), fl.getsampwidth (), fl.getframerate ())
-  fl.close()
-  
-  print ("TTS done")
-  return data
 
 def writeAmount (clientSocket, data):
   clientSocket.send (data)
@@ -125,21 +150,32 @@ def handleConnection (clientSocket, address):
 
   try:
     while True:
+        service = readInt (clientSocket)
+        size = readInt (clientSocket)
+        receivedHeader = readAmount (clientSocket, size)
         size = readInt (clientSocket)
         receivedData = readAmount (clientSocket, size)
-        print ("Received: ", len (receivedData))
+        print ("Received: ", service, len (receivedHeader), len (receivedData))
         if not receivedData: 
           break
-        
+
+        if service in services.keys ():
+          resultHeader, resultData = services[service] (receivedHeader, receivedData)
+        else:
+          print ("Unknown service: ", service)
+          resultHeader = b''
+          resultData = b''
         #saveToWav ("my.wav", receivedData)
         
         #result = str.encode (invokeSpeechRecognition ())
-        text = receivedData.decode("utf-8") 
-        result = invokeSpeechSynthesis (text)
+        #text = receivedData.decode("utf-8") 
+        #result = invokeSpeechSynthesis (text)
         
-        writeInt (clientSocket, len (result))
-        writeAmount (clientSocket, result)
-        print ("Sent reply", result)
+        writeInt (clientSocket, len (resultHeader))
+        writeAmount (clientSocket, resultHeader)
+        writeInt (clientSocket, len (resultData))
+        writeAmount (clientSocket, resultData)
+        print ("Sent reply", resultData)
     clientSocket.close(  )
     print ("Disconnected:", address, len (activeSockets))
     activeSockets.remove (clientSocket)
