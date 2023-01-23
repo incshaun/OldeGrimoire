@@ -40,6 +40,16 @@ cd ..
 pip -y uninstall ffmpeg-python
 pip install ffmpeg-python
 
+# Add BLIP
+git clone https://github.com/salesforce/BLIP.git
+cd BLIP
+  pip install -r requirements.txt
+  pip install pillow
+  wget -c https://storage.googleapis.com/sfr-vision-language-research/BLIP/models/model_base_capfilt_large.pth
+  wget -c https://storage.googleapis.com/sfr-vision-language-research/BLIP/models/model_base_vqa_capfilt_large.pth
+  touch __init__.py
+cd ..
+
 cd ..
 
 echo "You may need to manually install ffmpeg for your system for whisper"

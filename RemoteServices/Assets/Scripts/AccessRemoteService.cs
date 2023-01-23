@@ -23,6 +23,7 @@ public class AccessRemoteService : MonoBehaviour
     {
         SpeechRecognition = 10,
         SpeechSynthesis = 13,
+        ImageIdentification = 19,
     }
     
     private class ServiceConnection
@@ -49,9 +50,6 @@ public class AccessRemoteService : MonoBehaviour
       }
     }
     
-    //private int blockSize = 1024;
-//     private TcpClient client = null;
-
     public static void networkShortToByte(short s, byte[] dest, int offset = 0)
     {
         byte[] b = BitConverter.GetBytes(s);
@@ -228,8 +226,8 @@ public class AccessRemoteService : MonoBehaviour
     private const int numberOutputLines = 4;
     private string[] outputLines = new string [numberOutputLines];
     private int currentOutputLine = 0;
-   private void addOutputLine (string line)
-   {
+    private void addOutputLine (string line)
+    {
         // Control characters interfere with string appending. https://stackoverflow.com/questions/15259275/removing-hidden-characters-from-within-strings/15259355#15259355
         line = new string(line.Where(c => !char.IsControl(c)).ToArray());
 
@@ -242,33 +240,6 @@ public class AccessRemoteService : MonoBehaviour
         }
         outputTextField.text = result;
     }
-
-    //private IEnumerator recordAudio()
-    //{
-    //    // Set the microphone recording. Service requires 16 kHz sampling.
-    //    audioClip = Microphone.Start(null, false, recordDuration, 16000);
-    //    yield return new WaitForSeconds(recordDuration);
-    //    Microphone.End(null);
-
-    //    doPlayback();
-    //    Debug.Log("Channels " + audioClip.channels + " Samples " + audioClip.samples + "Rate " + audioClip.frequency);
-    //}
-
-    //public void doRecord ()
-    //{
-    //    StartCoroutine(recordAudio());
-    //}
-
-    //public void doPlayback ()
-    //{
-    //    // Play the recording back, to validate it was recorded correctly.
-    //    AudioSource audioSource = GetComponent<AudioSource>();
-    //    if ((audioClip != null) && (audioSource != null))
-    //    {
-    //        audioSource.clip = audioClip;
-    //        audioSource.Play();
-    //    }
-    //}
 
     public void transmitToServer()
     {
@@ -293,47 +264,8 @@ public class AccessRemoteService : MonoBehaviour
 //         Debug.Log("Received result: " + outputTextField.text);
     }
 
-    //private async Task doTransmitAudio ()
-    //{
-    //    if (audioClip != null)
-    //    {
-    //        try
-    //        {
-    //            var samples = new float[audioClip.samples];
-    //            audioClip.GetData(samples, 0);
-    //            Debug.Log("Transmitting audio: " + samples.Length);
-    //            byte[] data = new byte[2 * samples.Length];
-    //            int rescaleFactor = 32767; //to convert float to Int16
-    //            for (int i = 0; i < samples.Length; i++)
-    //            {
-    //                short v = (short)(samples[i] * rescaleFactor);
-    //                // Wav byte order is opposite network.
-    //                byte[] b = BitConverter.GetBytes(v);
-    //                if (!BitConverter.IsLittleEndian)
-    //                {
-    //                    Array.Reverse(b);
-    //                }
-    //                b.CopyTo(data, i * 2);
-    //            }
-    //            Debug.Log("Transmitting data: " + data.Length);
-
-    //            // The actual interactions with the remote server will use byte arrays,
-    //            // to allow any form of data to interchanged. This method converts to/from
-    //            // text for demonstration/testing purposes.
-    //            byte[] result = await sendAndReceive(data);
-
-    //            string resultString = Encoding.ASCII.GetString(result);
-    //            outputTextField.text = resultString;
-
-    //            Debug.Log("Received result: " + outputTextField.text);
-    //        }
-    //        catch (Exception e)
-    //        {
-    //            Debug.Log("Something bad: " + e);
-    //        }
-    //    }
-    //}
-    
+    // Speech Synthesis
+        
     public void doSpeechSynthesis ()
     {
         byte[] data = Encoding.ASCII.GetBytes(inputTextField.text);
@@ -388,6 +320,8 @@ public class AccessRemoteService : MonoBehaviour
 
         Debug.Log("Received result: " + outputTextField.text + " - " + channels + " " + width + " " + rate);
     }
+
+    // Speech Recognition
     
     private AudioClip audioClip = null;
     private bool audioRecording = false;
@@ -407,18 +341,8 @@ public class AccessRemoteService : MonoBehaviour
         audioRecording = true;
     }
 
-//     // Since requests to the server are sequentially over a single stream,
-//     // we have to wait until the current request is complete before sending
-//     // the next, or the stream will get messed up with interleaved requests.
-//     private Task runningTask = null;
     private void transmitAsRequired (ServiceConnection speechService)
     {
-//         if (runningTask != null)
-//         {
-//             await Task.WhenAny (runningTask);
-//             runningTask = null;
-//         }
-//         
         try
         {
             //Debug.Log("Recording at position: " + Microphone.GetPosition(Microphone.devices[0]));
@@ -455,7 +379,7 @@ public class AccessRemoteService : MonoBehaviour
                 // The actual interactions with the remote server will use byte arrays,
                 // to allow any form of data to interchanged. This method converts to/from
                 // text for demonstration/testing purposes.
-                _ = sendAndUpdate(speechService, header, data);
+                _ = sendAndUpdate(speechService, ServiceType.SpeechRecognition, header, data);
             }
         }
         catch (Exception e)
@@ -475,14 +399,14 @@ public class AccessRemoteService : MonoBehaviour
         doTransmitAudioStream();
     }
 
-    private async Task sendAndUpdate(ServiceConnection service, byte [] header, byte [] data)
+    private async Task sendAndUpdate(ServiceConnection service, ServiceType type, byte [] header, byte [] data)
     {
         try
         {
             byte [] resultHeader;
             byte[] resultData;
 
-            (resultHeader, resultData) = await sendAndReceive(service, ServiceType.SpeechRecognition, header, data);
+            (resultHeader, resultData) = await sendAndReceive(service, type, header, data);
 
             if ((resultData != null) && (resultData.Length > 0))
             {
@@ -498,6 +422,62 @@ public class AccessRemoteService : MonoBehaviour
         }
     }
 
+    // Image Identification
+    private WebCamTexture webcamTex = null;
+    private bool webcamStarting = false;
+    public Material cameraMaterial;
+    private ServiceConnection imageIDService = null;
+    public void identifyImage ()
+    {
+        if (webcamTex == null)
+        {
+          webcamTex = new WebCamTexture();
+          webcamTex.Play();
+          webcamStarting = true;
+        }
+        
+        if (imageIDService == null)
+        {
+            imageIDService = new ServiceConnection ();
+        }
+        
+        if ((cameraMaterial != null) && (webcamTex != null))
+        {
+            cameraMaterial.mainTexture = webcamTex;
+        }
+        
+        if (webcamTex != null)
+        {
+            StartCoroutine (sendSnapshot ());
+        }
+    }
+    
+    private IEnumerator sendSnapshot ()
+    {
+        if (webcamStarting)
+        {
+            // wait to ensure camera is running.
+            yield return new WaitForSeconds (1.0f);
+            webcamStarting = false;
+        }
+        
+        Texture2D tex = new Texture2D (webcamTex.width, webcamTex.height, TextureFormat.RGB24, false);
+        // seem to need a flip vertical.
+        for (int i = 0; i < webcamTex.height; i++)
+        {
+          tex.SetPixels(0, webcamTex.height - (i + 1), webcamTex.width, 1, webcamTex.GetPixels (0, i, webcamTex.width, 1));
+        }
+        tex.Apply ();
+        byte [] data = tex.GetRawTextureData ();
+        Debug.Log ("Got image: " + data.Length + " " + webcamTex.width + " " + webcamTex.height + " " + tex.width + " " + tex.height + " " + webcamTex.videoVerticallyMirrored);
+
+        byte [] header = new byte [8];
+        networkUIntToByte ((uint) tex.width, header, 0);
+        networkUIntToByte ((uint) tex.height, header, 4); // sample width in bytes.
+        
+        _ = sendAndUpdate (imageIDService, ServiceType.ImageIdentification, header, data);        
+    }
+    
     private void Update()
     {
         //Debug.Log("Main thread running");

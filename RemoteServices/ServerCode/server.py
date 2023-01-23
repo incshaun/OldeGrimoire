@@ -11,6 +11,7 @@ blockSize = 512
 
 SERVICETYPESPEECHRECOGNITION = 10
 SERVICETYPESPEECHSYNTHESIS = 13
+SERVICETYPESIMAGEIDENTIFICATION = 19
 
 ###########################################################################
 ### Service functions
@@ -90,10 +91,69 @@ def invokeSpeechSynthesis (header, data):
   return header, data
 
 ###########################################################################
+# Image Identification
+###########################################################################
+
+sys.path.insert(0, 'remoteservices/BLIP/')
+from PIL import Image
+from models.blip import blip_decoder
+from models.blip_vqa import blip_vqa
+
+from torchvision import transforms
+from torchvision.transforms.functional import InterpolationMode
+
+imageIdModel = None
+def invokeImageIdentification (header, data):
+  global imageIdModel
+  
+  image_size = 384
+  device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+  if imageIdModel == None:
+    modelsource = "remoteservices/BLIP/model_base_capfilt_large.pth"
+    imageIdModel = blip_decoder(pretrained=modelsource, image_size=image_size, vit='base', med_config = 'remoteservices/BLIP/configs/med_config.json')
+    imageIdModel.eval()
+    imageIdModel = imageIdModel.to(device)
+
+  width = int.from_bytes (header[0:4], byteorder='big', signed=False)
+  height = int.from_bytes (header[4:8], byteorder='big', signed=False)
+  b = bytes (data)
+  rawimage = Image.frombytes ('RGB', (width, height), b)
+  #print (width, height, len (data), width * height * 3, rawimage.width, rawimage.height)
+  rawimage.save ("imid.png") # save, just for debugging purposes.
+  transform = transforms.Compose([
+        transforms.Resize((image_size,image_size),interpolation=InterpolationMode.BICUBIC),
+        transforms.ToTensor(),
+        transforms.Normalize((0.48145466, 0.4578275, 0.40821073), (0.26862954, 0.26130258, 0.27577711))
+        ]) 
+  image = transform(rawimage).unsqueeze(0).to(device)   
+  
+  with torch.no_grad():
+    # beam search
+    caption = imageIdModel.generate(image, sample=False, num_beams=3, max_length=20, min_length=5) 
+    # nucleus sampling
+    # caption = model.generate(image, sample=True, top_p=0.9, max_length=20, min_length=5) 
+    print('caption: ', caption)
+  
+  ## Bonus - you can spin this off into a separate service, to respond to text questions about the image.
+  #questionmodelsource = 'remoteservices/BLIP/model_base_vqa_capfilt_large.pth'
+  #model = blip_vqa(pretrained=questionmodelsource, image_size=image_size, vit='base', med_config = 'remoteservices/BLIP/configs/med_config.json')
+  #model.eval()
+  #model = model.to(device)
+      
+  #question = 'what type of clothing is the person wearing?'
+
+  #with torch.no_grad():
+      #answer = model(image, question, train=False, inference='generate') 
+      #print('answer: '+answer[0]) 
+  
+  return b'', str.encode (caption[0])
+  
+###########################################################################
 
 services = {
   SERVICETYPESPEECHRECOGNITION : invokeSpeechRecognition,
   SERVICETYPESPEECHSYNTHESIS : invokeSpeechSynthesis,
+  SERVICETYPESIMAGEIDENTIFICATION : invokeImageIdentification,
 }
 
 activeSockets = []
@@ -114,6 +174,8 @@ def server ():
   
   activeSockets.append (sock)
   signal.signal(signal.SIGINT, signal_handler)
+  
+  print ("Server started")
   
   try:
       while True:
