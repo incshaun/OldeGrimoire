@@ -47,6 +47,7 @@ public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
         InputNetworkData ind = new InputNetworkData ();
         ind.turnAmount = Input.GetAxis ("Horizontal");
         ind.forwardAmount = Input.GetAxis ("Vertical");
+        ind.create = Input.GetAxis ("Fire1") > 0.0f;
 //         Debug.Log ("Got Input " + ind.turnAmount + " " + ind.forwardAmount);
         input.Set (ind);
     }

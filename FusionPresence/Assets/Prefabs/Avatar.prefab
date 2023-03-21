@@ -459,6 +459,7 @@ MonoBehaviour:
   _interpolationDataSource: 0
   moveSpeed: 1
   turnSpeed: 100
+  blobTemplate: {fileID: 6440741295912643375, guid: 6989fc4f300fdd6ada742f43ac71e423, type: 3}
 --- !u!114 &2270274487431316802
 MonoBehaviour:
   m_ObjectHideFlags: 0
