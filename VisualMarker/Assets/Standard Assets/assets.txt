@@ -1,1 +1,0 @@
-Vuforia automatically downloads and adds assets when vuforia scene elements are created. The Vuforia folder works best when placed directly in the Assets folder.
