@@ -1,27 +1,68 @@
-﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using GoogleARCore;
+using UnityEngine.XR.ARFoundation;
+using UnityEngine.XR.ARSubsystems;
 
-public class ShowObjectOnTrackable : MonoBehaviour {
-  
-  public GameObject displayObject;
-  
-  private List<AugmentedImage> trackedImages = new List<AugmentedImage>();
-  
-  // Update is called once per frame
-  void Update () {
-    displayObject.SetActive (false);
+
+// Thanks: Markus_T, https://discussions.unity.com/t/ar-foundation-multiple-tracked-image-managers/747761/9
+[RequireComponent(typeof(ARTrackedImageManager))]
+public class ShowObjectOnTrackable : MonoBehaviour
+{
+    [Header("The length of this list must match the number of images in Reference Image Library")]
+    public List<GameObject> ObjectsToPlace;
     
-    Session.GetTrackables<AugmentedImage> (trackedImages, TrackableQueryFilter.All);
-    foreach (var image in trackedImages)
+    private Dictionary<string, GameObject> allObjects;
+    private ARTrackedImageManager arTrackedImageManager;
+    private IReferenceImageLibrary refLibrary;
+    
+    void Awake()
     {
-      if (image.TrackingState == TrackingState.Tracking)
-      {
-        displayObject.transform.position = image.CenterPose.position;
-        displayObject.transform.rotation = image.CenterPose.rotation;
-        displayObject.SetActive (true);
-      }
+        arTrackedImageManager = GetComponent<ARTrackedImageManager>();
     }
-  }
+    
+    private void OnEnable()
+    {
+        arTrackedImageManager.trackedImagesChanged += OnImageChanged;
+    }
+    
+    private void OnDisable()
+    {
+        arTrackedImageManager.trackedImagesChanged -= OnImageChanged;
+    }
+    
+    private void Start()
+    {
+        refLibrary = arTrackedImageManager.referenceLibrary;
+        
+        allObjects = new Dictionary<string, GameObject>();
+        for (int i = 0; i < refLibrary.count; i++)
+        {
+            allObjects.Add(refLibrary[i].name, Instantiate (ObjectsToPlace[i]));
+            allObjects[refLibrary[i].name].SetActive(false);
+        }
+    }
+    
+    void ActivateTrackedObject(string _imageName)
+    {
+        allObjects[_imageName].SetActive(true);
+    }
+    
+    public void OnImageChanged(ARTrackedImagesChangedEventArgs _args)
+    {
+        foreach (var addedImage in _args.added)
+        {
+            allObjects[addedImage.referenceImage.name]?.SetActive(true);
+        }
+        
+        foreach (var updated in _args.updated)
+        {
+            allObjects[updated.referenceImage.name].transform.position = updated.transform.position;
+            allObjects[updated.referenceImage.name].transform.rotation = updated.transform.rotation;
+        }
+        
+        foreach (var removedImage in _args.removed)
+        {
+            allObjects[removedImage.referenceImage.name]?.SetActive (false);
+        }
+    }
 }

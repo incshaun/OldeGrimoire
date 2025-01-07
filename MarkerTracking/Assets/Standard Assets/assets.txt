@@ -1,1 +1,0 @@
-Add the ARCore SDK from: https://github.com/google-ar/arcore-unity-sdk/releases 
