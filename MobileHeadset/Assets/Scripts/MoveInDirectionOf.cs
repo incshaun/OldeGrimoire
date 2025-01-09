@@ -20,7 +20,7 @@ public class MoveInDirectionOf : MonoBehaviour
     {
       if (OVRInput.Get (button))
       {
-        this.transform.position += speed * Vector3.ProjectOnPlane (pointer.transform.forward, constrainDirection);
+        this.transform.position += speed * Time.deltaTime * Vector3.ProjectOnPlane (pointer.transform.forward, constrainDirection);
       }
     }
 }

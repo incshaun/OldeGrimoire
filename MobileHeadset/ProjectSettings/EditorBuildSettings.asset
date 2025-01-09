@@ -4,5 +4,13 @@
 EditorBuildSettings:
   m_ObjectHideFlags: 0
   serializedVersion: 2
-  m_Scenes: []
-  m_configObjects: {}
+  m_Scenes:
+  - enabled: 1
+    path: Assets/Scenes/MobileHeadset.unity
+    guid: 99c9720ab356a0642a771bea13969a05
+  m_configObjects:
+    com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
+    com.unity.xr.arfoundation.simulation_settings: {fileID: 11400000, guid: 299a36a5413f4c32d891d794bb767575, type: 2}
+    com.unity.xr.management.loader_settings: {fileID: 11400000, guid: 62a79a3f2f8e0284d84697ca671e32c8, type: 2}
+    com.unity.xr.openxr.settings4: {fileID: 11400000, guid: 6a6ca7d68b8025b7692897697fcad74d, type: 2}
+  m_UseUCBPForAssetBundles: 0
