@@ -1,1 +1,3 @@
+WorldMap, https://www.solarsystemscope.com/textures/, accessed 25 January 2025, distributed under Creative Commons Attribution 4.0 International license.
+ 
 BlankMap-World-Equirectangular.svg, United States Central Intelligence Agency's World Factbook, 2008, https://commons.wikimedia.org/wiki/File:BlankMap-World-Equirectangular.svg, This file is made available under the Creative Commons CC0 1.0 Universal Public Domain Dedication.

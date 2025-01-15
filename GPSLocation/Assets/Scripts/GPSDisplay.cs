@@ -2,12 +2,13 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
+using TMPro;
 
 public class GPSDisplay : MonoBehaviour {
 
         public GPSTracking locationService;
         
-        public Text displayText;
+        public TextMeshProUGUI displayText;
         
 	void Update () {
           float latitude;

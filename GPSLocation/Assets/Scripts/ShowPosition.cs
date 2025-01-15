@@ -6,11 +6,13 @@ public class ShowPosition : MonoBehaviour {
 
         public GPSTracking locationService;
 	
-        public GameObject marker;
+        public GameObject markerPrefab;
         
-        public float globeRadius = 10.0f;
+        public float globeRadius = 0.5f;
         
         public float rotationSpeed = 30.0f;
+        
+        private GameObject marker;
         
 	void Update () {
           // Rotate the globe.
@@ -26,7 +28,14 @@ public class ShowPosition : MonoBehaviour {
               new Vector3 (Mathf.Cos (latitude * Mathf.Deg2Rad) * Mathf.Cos (longitude * Mathf.Deg2Rad),
                            Mathf.Sin (latitude * Mathf.Deg2Rad),
                            Mathf.Cos (latitude * Mathf.Deg2Rad) * Mathf.Sin (longitude * Mathf.Deg2Rad));
+              
+            if (marker == null)
+            {
+              marker = Instantiate (markerPrefab);
+              marker.transform.SetParent (transform);
+            }
             marker.transform.localPosition = position;
+            marker.transform.up = transform.TransformDirection (position);
           }
 	}
 }
