@@ -393,6 +393,7 @@ GameObject:
   - component: {fileID: 707182546}
   - component: {fileID: 707182547}
   - component: {fileID: 707182548}
+  - component: {fileID: 707182549}
   m_Layer: 0
   m_Name: Avatar
   m_TagString: Untagged
@@ -423,7 +424,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 707182545}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 77af41dea3d7d6a559c8915a4d2df0c3, type: 3}
   m_Name: 
@@ -455,6 +456,27 @@ MonoBehaviour:
   dropoffDistanceConstant: 0.8
   attenuationFactor: 1.5
   speedOfSound: 330
+--- !u!114 &707182549
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 707182545}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 77af41dea3d7d6a559c8915a4d2df0c3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  moveSpeed: 10
+  turnSpeed: 100
+  pathSpeed: 1
+  realTime: 1
+  manualMove: 1
+  manualRotate: 0
+  autoFollowPath: 0
+  pathRadius: 10
+  pathSides: 4
 --- !u!1 &832575517
 GameObject:
   m_ObjectHideFlags: 0
