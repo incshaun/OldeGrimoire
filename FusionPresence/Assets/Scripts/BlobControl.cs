@@ -9,6 +9,5 @@ public class BlobControl : NetworkBehaviour
     public override void Spawned()
     {
         GetComponent <Rigidbody> ().linearVelocity = transform.forward;
-        Destroy (gameObject, 10.0f);
     }
 }
