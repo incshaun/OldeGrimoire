@@ -7,7 +7,7 @@ using TMPro;
 
 public class AvatarName : NetworkBehaviour
 {
-    [Networked (OnChanged = "updateName")] 
+    [Networked, OnChangedRender (nameof (updateName))] 
     public string nickName { get; set; }
     
     public TextMeshPro text;
@@ -22,9 +22,9 @@ public class AvatarName : NetworkBehaviour
     }
 
     // Called when nickName value changes, on each client.
-    public static void updateName (Changed<AvatarName> change)
+    public void updateName ()
     {
-        change.Behaviour.text.text = change.Behaviour.nickName;
+        text.text = nickName;
     }
     
     // Called to update the nickName value. Must only run

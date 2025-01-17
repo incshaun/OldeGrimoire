@@ -13,6 +13,14 @@ public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
     
     private NetworkRunner networkManager;
     
+    private InputSystem_Actions controls;
+    
+    void Start ()
+    {
+        controls = new InputSystem_Actions ();
+        controls.Enable ();
+    }
+
     public void startServer ()
     {
         startNetwork (GameMode.Host);
@@ -35,6 +43,7 @@ public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
     
     public void OnPlayerJoined(NetworkRunner runner, PlayerRef player) 
     { 
+        Debug.Log ("Player joined");
         if (networkManager.IsServer)
         {
             NetworkObject participant = networkManager.Spawn (avatarPrefab, Vector3.zero, Quaternion.identity, player);
@@ -45,9 +54,9 @@ public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
     public void OnInput(NetworkRunner runner, NetworkInput input) 
     { 
         InputNetworkData ind = new InputNetworkData ();
-        ind.turnAmount = Input.GetAxis ("Horizontal");
-        ind.forwardAmount = Input.GetAxis ("Vertical");
-        ind.create = Input.GetAxis ("Fire1") > 0.0f;
+        ind.turnAmount = controls.Player.Move.ReadValue<Vector2>().x;
+        ind.forwardAmount = controls.Player.Move.ReadValue<Vector2>().y;
+        ind.create = controls.Player.Attack.ReadValue<float>() > 0.0f;
 //         Debug.Log ("Got Input " + ind.turnAmount + " " + ind.forwardAmount);
         input.Set (ind);
     }
@@ -64,6 +73,11 @@ public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
     public void OnReliableDataReceived(NetworkRunner runner, PlayerRef player, ArraySegment<byte> data) { }
     public void OnSceneLoadDone(NetworkRunner runner) { }
     public void OnSceneLoadStart(NetworkRunner runner) { }
+    public void OnObjectEnterAOI (NetworkRunner runner, NetworkObject obj, PlayerRef player) { }
+    public void OnObjectExitAOI (NetworkRunner runner, NetworkObject obj, PlayerRef player) { }
+    public void OnDisconnectedFromServer (NetworkRunner runner, NetDisconnectReason reason) { }
+    public void OnReliableDataProgress (NetworkRunner runner, PlayerRef player, ReliableKey key, float progress) { }
+    public void OnReliableDataReceived (NetworkRunner runner, PlayerRef player, ReliableKey key, ArraySegment< byte > data) { }
     
     public void updateNickName (string name)
     {
