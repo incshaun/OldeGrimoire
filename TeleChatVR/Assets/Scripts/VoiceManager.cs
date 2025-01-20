@@ -4,6 +4,9 @@ using UnityEngine;
 using Photon.Voice.Unity;
 using Photon.Realtime;
 using Photon.Pun;
+#if PLATFORM_ANDROID
+using UnityEngine.Android;
+#endif
 
 public class VoiceManager : MonoBehaviourPunCallbacks
 {
@@ -41,6 +44,14 @@ public class VoiceManager : MonoBehaviourPunCallbacks
     status.text = "";
     setStatusText ("Application started");  
     
+#if PLATFORM_ANDROID
+    if (!Permission.HasUserAuthorizedPermission(Permission.Microphone))
+    {
+        Permission.RequestUserPermission(Permission.Microphone);
+    }
+    setStatusText ("Microphone Status: " + Permission.HasUserAuthorizedPermission(Permission.Microphone) + " - " + Permission.ShouldShowRequestPermissionRationale(Permission.Microphone));  
+#endif   
+    
     PhotonNetwork.ConnectUsingSettings();
     
     VoiceConnection vc = GetComponent <VoiceConnection> ();
@@ -58,7 +69,10 @@ public class VoiceManager : MonoBehaviourPunCallbacks
   
   public override void OnJoinedRoom()
   {
-    setStatusText ("Joined room with " + PhotonNetwork.CurrentRoom.PlayerCount + " participants.");
+    VoiceConnection vc = GetComponent <VoiceConnection> ();
+    setStatusText ("Joined room with " + vc.Client.CurrentRoom.PlayerCount + " participants.");
+    
+    switchMicrophone ();
   }
   
   public void OnDisconnected(DisconnectCause cause)
@@ -66,13 +80,10 @@ public class VoiceManager : MonoBehaviourPunCallbacks
     setStatusText ("Disconnected " + cause);
   }
   
-  void switchMicrophone ()
+  public void switchMicrophone ()
   {
     VoiceConnection vc = GetComponent <VoiceConnection> ();
-    if ((OVRInput.GetDown (button)) || (Input.GetButtonDown ("Fire1")))
-    {
-      vc.PrimaryRecorder.TransmitEnabled = !vc.PrimaryRecorder.TransmitEnabled;
-    }
+    vc.PrimaryRecorder.TransmitEnabled = !vc.PrimaryRecorder.TransmitEnabled;
     if (microphoneIndicator != null)
     {
       if (vc.PrimaryRecorder.TransmitEnabled)
@@ -106,7 +117,5 @@ public class VoiceManager : MonoBehaviourPunCallbacks
     }
     setStatusText (vc.Client.State.ToString () + " server: " + vc.Client.CloudRegion + ":" + vc.Client.CurrentServerAddress +
     " room: " + room + " participants: " + otherParticipants);
-    
-    switchMicrophone ();
   }
 }
